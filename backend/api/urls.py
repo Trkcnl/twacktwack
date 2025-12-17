@@ -1,5 +1,11 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
+
+router = DefaultRouter()
+router.register(
+    r"userprofiles", viewset=views.UserProfileViewSet, basename="userprofile"
+)
 
 urlpatterns = [
     path(
@@ -10,4 +16,5 @@ urlpatterns = [
         views.MeasurementDelete.as_view(),
         name="measurement-delete",
     ),
+    path("", include(router.urls)),
 ]
