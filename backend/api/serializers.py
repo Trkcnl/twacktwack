@@ -7,6 +7,7 @@ from .models import (
     ExerciseType,
     ExerciseSet,
     ExerciseLog,
+    UserProfile,
 )
 
 
@@ -45,6 +46,13 @@ class ExerciseSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseSet
         fields = ["exercise_log", "reps", "weight_kg", "rpe"]
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ["name", "birthdate", "bio", "created", "modified", "user"]
+        extra_kwargs = {"user": {"read_only": True}}
 
 
 class MeasurementTypeSerializer(serializers.ModelSerializer):

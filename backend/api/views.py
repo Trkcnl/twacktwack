@@ -1,21 +1,40 @@
 from django.contrib.auth.models import User
-from rest_framework import generics
+from rest_framework import generics, viewsets
 from .serializers import (
     UserSerializer,
+    UserProfileSerializer,
     MeasurementTypeSerializer,
     MeasurementSerializer,
 )
-from .models import MeasurementType, Measurement
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from .models import MeasurementType, Measurement, UserProfile
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
 
+# USER
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
 
 
-class MeasurementListTypeView(generics.ListAPIView):
+class UserProfileViewSet(viewsets.ModelViewSet):
+    serializer_class = UserProfileSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserProfile.objects.filter(user=user)
+
+    def get_permissions(self):
+        if self.action == "list":
+            permission_classes = [IsAdminUser]
+        else:
+            permission_classes = [IsAuthenticated]
+
+        return [permission() for permission in permission_classes]
+
+
+# MEASUREMENT
+class MeasurementTypeListView(generics.ListAPIView):
     queryset = MeasurementType.objects.all()
     serializer_class = MeasurementTypeSerializer
     permission_classes = [AllowAny]
