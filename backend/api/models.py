@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 class UserProfile(models.Model):
     name = models.CharField(max_length=100)
     birthdate = models.DateField()
-    length = models.PositiveSmallIntegerField()
+    height = models.PositiveSmallIntegerField()
     bio = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
