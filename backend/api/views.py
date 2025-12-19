@@ -1,19 +1,36 @@
 from django.contrib.auth.models import User
-from rest_framework import generics, viewsets
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, mixins
 from .serializers import (
-    UserSerializer,
+    UserRegisterSerializer,
     UserProfileSerializer,
     MeasurementTypeSerializer,
-    MeasurementSerializer,
+    MeasurementReadSerializer,
+    MeasurementWriteSerializer,
+    WorkoutLogReadSerializer,
+    WorkoutLogWriteSerializer,
+    ExerciseLogReadSerializer,
+    ExerciseLogWriteSerializer,
+    ExerciseSetReadSerializer,
+    ExerciseSetWriteSerializer,
+    ExerciseTypeSerializer,
 )
-from .models import MeasurementType, Measurement, UserProfile
+from .models import (
+    MeasurementType,
+    Measurement,
+    UserProfile,
+    WorkoutLog,
+    ExerciseLog,
+    ExerciseSet,
+    ExerciseType,
+)
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
 
 # USER
-class CreateUserView(generics.CreateAPIView):
+class UserRegisterViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = User.objects.all()
-    serializer_class = UserSerializer
+    serializer_class = UserRegisterSerializer
     permission_classes = [AllowAny]
 
 
@@ -34,31 +51,93 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
 
 # MEASUREMENT
-class MeasurementTypeListView(generics.ListAPIView):
-    queryset = MeasurementType.objects.all()
+
+
+class MeasurementTypeViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = MeasurementType.objects.order_by("name")
     serializer_class = MeasurementTypeSerializer
     permission_classes = [AllowAny]
 
 
-class MeasurementListCreate(generics.ListCreateAPIView):
-    serializer_class = MeasurementSerializer
+class MeasurementViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        return Measurement.objects.filter(user=user)
+        return Measurement.objects.filter(user=self.request.user).select_related(
+            "measurement_type"
+        )
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return MeasurementWriteSerializer
+        return MeasurementReadSerializer
 
     def perform_create(self, serializer):
-        if serializer.is_valid():
-            serializer.save(user=self.request.user)
-        else:
-            print(serializer.errors)
+        serializer.save(user=self.request.user)
 
 
-class MeasurementDelete(generics.DestroyAPIView):
-    serializer_class = MeasurementSerializer
+# WORKOUT
+
+
+class WorkoutLogViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        return Measurement.objects.filter(user=user)
+        return WorkoutLog.objects.filter(user=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return WorkoutLogWriteSerializer
+        return WorkoutLogReadSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+# EXERCISE
+
+
+class ExerciseTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = ExerciseType.objects.order_by("name")
+    serializer_class = ExerciseTypeSerializer
+    permission_classes = [AllowAny]
+
+
+class ExerciseLogViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ExerciseLog.objects.filter(workout_log__user=self.request.user)
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return ExerciseLogWriteSerializer
+        return ExerciseLogReadSerializer
+
+    def perform_create(self, serializer):
+        workout_id = self.kwargs["workout_pk"]
+        workout = get_object_or_404(WorkoutLog, id=workout_id, user=self.request.user)
+
+        serializer.save(workout_log=workout)
+
+
+class ExerciseSetViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ExerciseSet.objects.filter(
+            exercise_log__workout_log__user=self.request.user
+        )
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return ExerciseSetWriteSerializer
+        return ExerciseSetReadSerializer
+
+    def perform_create(self, serializer):
+        exercise = get_object_or_404(
+            ExerciseLog,
+            id=self.kwargs["exercise_pk"],
+            workout_log__user=self.request.user,
+        )
+        serializer.save(exercise_log=exercise)

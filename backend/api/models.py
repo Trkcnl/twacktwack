@@ -19,6 +19,11 @@ class WorkoutLog(models.Model):
     def get_duration(self):
         return naturaldelta(self.endtime - self.begintime)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created"]),
+        ]
+
 
 class ExerciseType(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -37,6 +42,17 @@ class ExerciseLog(models.Model):
     def __str__(self):
         return f"{self.workout_log} - {self.exercise_type}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["workout_log"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workout_log", "exercise_type"],
+                name="unique_exercise_per_workout",
+            )
+        ]
+
 
 class ExerciseSet(models.Model):
     exercise_log = models.ForeignKey(
@@ -46,11 +62,19 @@ class ExerciseSet(models.Model):
     reps = models.PositiveSmallIntegerField()
     weight_kg = models.DecimalField(max_digits=6, decimal_places=2)
     rpe = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(0), MaxValueValidator(10)]
+        validators=[MinValueValidator(1), MaxValueValidator(10)]
+    )
+    rir = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(0), MaxValueValidator(6)]
     )
 
     def __str__(self):
         return f"{self.reps} reps - {self.weight_kg} kgs"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["exercise_log"]),
+        ]
 
 
 class UserProfile(models.Model):
@@ -73,7 +97,7 @@ class UserProfile(models.Model):
 
 
 class MeasurementType(models.Model):
-    name = models.CharField(max_length=25, unique=True)
+    name = models.CharField(max_length=100, unique=True)
     unit = models.CharField(max_length=10)
     created = models.DateTimeField(auto_now_add=True)
 
@@ -82,7 +106,7 @@ class MeasurementType(models.Model):
 
 
 class Measurement(models.Model):
-    value = models.DecimalField(max_digits=5, decimal_places=2, editable=False)
+    value = models.DecimalField(max_digits=5, decimal_places=2)
     created = models.DateTimeField(auto_now_add=True)
 
     measurement_type = models.ForeignKey(MeasurementType, on_delete=models.CASCADE)
@@ -91,4 +115,4 @@ class Measurement(models.Model):
     )
 
     def __str__(self):
-        return f"{self.User} - {self.measurement_type.name}: {self.value} {self.measurement_type.unit}"
+        return f"{self.user} - {self.measurement_type.name}: {self.value} {self.measurement_type.unit}"

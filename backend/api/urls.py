@@ -4,17 +4,24 @@ from . import views
 
 router = DefaultRouter()
 router.register(
-    r"userprofiles", viewset=views.UserProfileViewSet, basename="userprofile"
+    "userprofiles", viewset=views.UserProfileViewSet, basename="userprofile"
 )
+router.register("auth/register", views.UserRegisterViewSet, basename="register")
+router.register(
+    "measurement-types", views.MeasurementTypeViewSet, basename="measurement-type"
+)
+router.register("measurements", views.MeasurementViewSet, basename="measurement")
+router.register("workouts", views.WorkoutLogViewSet, basename="workout")
+router.register("exercise-types", views.ExerciseTypeViewSet, basename="exercise-type")
 
 urlpatterns = [
-    path(
-        "measurements/", views.MeasurementListCreate.as_view(), name="measurement-list"
-    ),
-    path(
-        "measurement/delete/<int:pk>/",
-        views.MeasurementDelete.as_view(),
-        name="measurement-delete",
-    ),
     path("", include(router.urls)),
+    path(
+        "workouts/<int:workout_pk>/exercises/",
+        views.ExerciseLogViewSet.as_view({"get": "list", "post": "create"}),
+    ),
+    path(
+        "exercises/<int:exercise_pk>/sets/",
+        views.ExerciseSetViewSet.as_view({"get": "list", "post": "create"}),
+    ),
 ]
