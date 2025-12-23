@@ -1,4 +1,4 @@
-import type { User } from "./auth.ts"
+import type { User } from "./auth.ts";
 
 export interface MeasurementType {
     readonly id: number;

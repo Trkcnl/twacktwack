@@ -9,7 +9,10 @@ export const Navbar = () => {
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
                 {/* Left Side: Logo/Brand */}
                 <div className="font-bold text-xl tracking-tight">
-                    <Link to="/dashboard" className="hover:text-blue-300 transition-colors">
+                    <Link
+                        to="/dashboard"
+                        className="hover:text-blue-300 transition-colors"
+                    >
                         TwackTwack
                     </Link>
                 </div>
@@ -19,10 +22,13 @@ export const Navbar = () => {
                     {user ? (
                         <>
                             <span className="text-slate-300 text-sm hidden sm:block">
-                                Welcome, <span className="font-semibold text-white">{user.username}</span>
+                                Welcome,{" "}
+                                <span className="font-semibold text-white">
+                                    {user.username}
+                                </span>
                             </span>
-                            
-                            <button 
+
+                            <button
                                 onClick={logout}
                                 className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                             >
@@ -30,8 +36,8 @@ export const Navbar = () => {
                             </button>
                         </>
                     ) : (
-                        <Link 
-                            to="/login" 
+                        <Link
+                            to="/login"
                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
                         >
                             Login

@@ -3,8 +3,8 @@ import axios from "axios";
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
     headers: {
-        "Content-Type": "application/json"
-    }
+        "Content-Type": "application/json",
+    },
 });
 
 api.interceptors.request.use(
@@ -17,7 +17,7 @@ api.interceptors.request.use(
     },
     (error) => {
         return Promise.reject(error);
-    }  
+    }
 );
 
 api.interceptors.response.use(
@@ -33,7 +33,9 @@ api.interceptors.response.use(
             return Promise.reject(error);
         }
         const statusCode = error.response.statusCode;
-        const errorMessage = error.response.data.message || "Oepsie Woepsie the Website is Gonzie!";
+        const errorMessage =
+            error.response.data.message ||
+            "Oepsie Woepsie the Website is Gonzie!";
 
         if (statusCode === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
@@ -44,17 +46,17 @@ api.interceptors.response.use(
                 // Make a call to your backend to refresh (pseudo-code for now)
                 // const response = await axios.post(`${import.meta.env.VITE_API_URL}/token/refresh/`, { refresh: refreshToken });
                 // const newAccessToken = response.data.access;
-                
+
                 // localStorage.setItem("access", newAccessToken);
 
                 // Fix: Update the header on the ORIGINAL request config
                 // originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
-                return axios(error.config)
+                return axios(error.config);
             } catch (refreshError) {
-                console.error("Token refresh failed:", refreshError)     ;
+                console.error("Token refresh failed:", refreshError);
                 localStorage.removeItem("access");
-                localStorage.removeItem("refresh");           
+                localStorage.removeItem("refresh");
                 // Clear storage and redirect to login~
                 return Promise.reject(refreshError);
             }

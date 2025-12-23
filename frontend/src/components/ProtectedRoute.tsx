@@ -4,12 +4,12 @@ import { useAuth } from "../context/AuthHook";
 export const ProtectedRoute = () => {
     const { isAuthenticated, isLoading } = useAuth();
 
-    // 1. The Wait: 
+    // 1. The Wait:
     // If the auth process is still checking LocalStorage, show a spinner.
     // If we don't wait, the code will rush to step 2, see "isAuthenticated: false",
     // and kick the user out incorrectly.
     if (isLoading) {
-        return <div>Loading session...</div>; 
+        return <div>Loading session...</div>;
     }
 
     // 2. The Check:

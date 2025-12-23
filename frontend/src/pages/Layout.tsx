@@ -11,9 +11,10 @@ export const Layout = () => {
             <main className="flex-1 container mx-auto px-4 py-8">
                 <Outlet />
             </main>
-            
+
             <footer className="bg-white border-t border-gray-200 py-6 text-center text-sm text-gray-500">
-                &copy; {new Date().getFullYear()} MyApp Corp. All rights reserved.
+                &copy; {new Date().getFullYear()} MyApp Corp. All rights
+                reserved.
             </footer>
         </div>
     );
