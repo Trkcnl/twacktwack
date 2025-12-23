@@ -1,8 +1,12 @@
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, mixins
+from rest_framework.exceptions import MethodNotAllowed
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from .serializers import (
     UserRegisterSerializer,
+    UserReadSerializer,
     UserProfileSerializer,
     MeasurementTypeSerializer,
     MeasurementReadSerializer,
@@ -28,10 +32,28 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
 
 # USER
-class UserRegisterViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+
+
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
-    serializer_class = UserRegisterSerializer
-    permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return UserRegisterSerializer
+        return UserReadSerializer
+
+    def list(self, request, *args, **kwargs):
+        raise MethodNotAllowed("GET")
+
+    @action(detail=False, methods=["get"], url_path="me", url_name="me")
+    def get_user(self, request):
+        serializer = UserReadSerializer(request.user)
+        return Response(serializer.data)
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):

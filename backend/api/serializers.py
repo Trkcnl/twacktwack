@@ -11,11 +11,26 @@ from .models import (
 )
 
 
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ["name", "birthdate", "bio", "created", "modified"]
+
+
+class UserReadSerializer(serializers.ModelSerializer):
+    user_profile = UserProfileSerializer
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "user_profile"]
+        read_only_fields = fields
+
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["username", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
+        fields = ["username", "email", "password"]
+        write_only_fields = fields
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
@@ -74,13 +89,6 @@ class ExerciseSetWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseSet
         fields = ["reps", "weight_kg", "rpe", "rir"]
-
-
-class UserProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = ["name", "birthdate", "bio", "created", "modified", "user"]
-        extra_kwargs = {"user": {"read_only": True}}
 
 
 class MeasurementTypeSerializer(serializers.ModelSerializer):
