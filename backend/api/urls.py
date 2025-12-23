@@ -6,13 +6,13 @@ router = DefaultRouter()
 router.register(
     "userprofiles", viewset=views.UserProfileViewSet, basename="userprofile"
 )
-router.register("auth/register", views.UserRegisterViewSet, basename="register")
 router.register(
     "measurement-types", views.MeasurementTypeViewSet, basename="measurement-type"
 )
 router.register("measurements", views.MeasurementViewSet, basename="measurement")
 router.register("workouts", views.WorkoutLogViewSet, basename="workout")
 router.register("exercise-types", views.ExerciseTypeViewSet, basename="exercise-type")
+router.register("auth/users", views.UserViewSet, basename="me")
 
 urlpatterns = [
     path("", include(router.urls)),
