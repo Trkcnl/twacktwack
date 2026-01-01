@@ -4,15 +4,13 @@ export interface MeasurementType {
     readonly id: number;
     readonly name: string;
     readonly unit: string;
-    readonly created: Date;
 }
 
 export interface Measurement {
     readonly id: number;
+    date: string;
     value: number;
     measurement_type: MeasurementType;
-    user: User;
-    readonly created: Date;
 }
 
 export interface UserProfile {
@@ -28,10 +26,9 @@ export interface UserProfile {
 
 export interface WorkoutLog {
     readonly id: number;
-    begintime: Date;
-    endtime: Date;
-    readonly created: Date;
-    user: User;
+    begintime: string;
+    endtime: string;
+    exercise_logs: ExerciseLog[];
 }
 
 export interface ExerciseType {
@@ -43,16 +40,13 @@ export interface ExerciseType {
 export interface ExerciseLog {
     readonly id: number;
     exercise_type: ExerciseType;
-    workout_log: WorkoutLog;
-    readonly created: Date;
+    exercise_sets: ExerciseSet[];
 }
 
 export interface ExerciseSet {
     readonly id: number;
-    exercise_log: ExerciseLog;
     weight_kg: number;
     reps: number;
     rpe: number;
     rir: number;
-    readonly created: Date;
 }

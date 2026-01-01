@@ -7,11 +7,11 @@ router.register(
     "userprofiles", viewset=views.UserProfileViewSet, basename="userprofile"
 )
 router.register(
-    "measurement-types", views.MeasurementTypeViewSet, basename="measurement-type"
+    "measurement-types", views.MeasurementTypeViewSet, basename="measurement-types"
 )
-router.register("measurements", views.MeasurementViewSet, basename="measurement")
-router.register("workouts", views.WorkoutLogViewSet, basename="workout")
-router.register("exercise-types", views.ExerciseTypeViewSet, basename="exercise-type")
+router.register("measurements", views.MeasurementViewSet, basename="measurements")
+router.register("workouts", views.WorkoutLogViewSet, basename="workouts")
+router.register("exercise-types", views.ExerciseTypeViewSet, basename="exercise-types")
 router.register("auth/users", views.UserViewSet, basename="me")
 
 urlpatterns = [
