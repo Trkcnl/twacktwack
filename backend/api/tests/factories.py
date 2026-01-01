@@ -23,15 +23,6 @@ class UserFactory(factory.django.DjangoModelFactory):
     password = factory.PostGenerationMethodCall("set_password", "password123")
 
 
-class WorkoutLogFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = WorkoutLog
-
-    user = factory.SubFactory(UserFactory)
-    begintime = factory.LazyFunction(timezone.now)
-    endtime = factory.LazyFunction(lambda: timezone.now() + timezone.timedelta(hours=1))
-
-
 class ExerciseTypeFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ExerciseType
@@ -39,23 +30,32 @@ class ExerciseTypeFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"Exercise {n}")
 
 
-class ExerciseLogFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = ExerciseLog
-
-    workout_log = factory.SubFactory(WorkoutLogFactory)
-    exercise_type = factory.SubFactory(ExerciseTypeFactory)
-
-
 class ExerciseSetFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = ExerciseSet
 
-    exercise_log = factory.SubFactory(ExerciseLogFactory)
     reps = 5
     weight_kg = "60.00"
     rpe = 8
     rir = 2
+
+
+class ExerciseLogFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ExerciseLog
+
+    exercise_type = factory.SubFactory(ExerciseTypeFactory)
+    exercise_sets = factory.SubFactory(ExerciseSetFactory)
+
+
+class WorkoutLogFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = WorkoutLog
+
+    user = factory.SubFactory(UserFactory)
+    begintime = factory.LazyFunction(timezone.now)
+    endtime = factory.LazyFunction(lambda: timezone.now() + timezone.timedelta(hours=1))
+    exercise_logs = [factory.SubFactory(ExerciseLogFactory)]
 
 
 class MeasurementTypeFactory(factory.django.DjangoModelFactory):
@@ -72,4 +72,5 @@ class MeasurementFactory(factory.django.DjangoModelFactory):
 
     user = factory.SubFactory(UserFactory)
     measurement_type = factory.SubFactory(MeasurementTypeFactory)
-    value = "80.00"
+    value = "81.00"
+    date = "2026-01-01"
