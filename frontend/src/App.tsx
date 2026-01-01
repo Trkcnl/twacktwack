@@ -3,6 +3,8 @@ import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { Layout } from "./pages/Layout";
 import { Dashboard } from "./pages/Dashboard";
+import { BodyTwacker } from "./pages/BodyTwacker";
+import { WorkoutTwacker } from "./pages/WorkoutTwacker";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthProvider";
 
@@ -23,6 +25,8 @@ function App() {
                             <Route path="/dashboard" element={<Dashboard />} />
                             {/* Future pages go here: */}
                             {/* <Route path="/settings" element={<Settings />} /> */}
+                            <Route path="/body_twacker" element={<BodyTwacker />} />
+                            <Route path="/workout_twacker" element={<WorkoutTwacker />} />
                         </Route>
                     </Route>
 

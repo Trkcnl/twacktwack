@@ -36,28 +36,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
-class WorkoutLogReadSerializer(serializers.ModelSerializer):
-    duration_seconds = serializers.SerializerMethodField()
-
-    class Meta:
-        model = WorkoutLog
-        fields = ["id", "begintime", "endtime", "created", "duration_seconds"]
-
-    def get_duration_seconds(self, obj):
-        return (obj.endtime - obj.begintime).total_seconds()
-
-
-class WorkoutLogWriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WorkoutLog
-        fields = ["begintime", "endtime"]
-
-    def validate(self, data):
-        if data["endtime"] <= data["begintime"]:
-            raise serializers.ValidationError("End time must be after begin time.")
-        return data
-
-
 class ExerciseTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseType
@@ -65,48 +43,94 @@ class ExerciseTypeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class ExerciseLogReadSerializer(serializers.ModelSerializer):
-    exercise_type = ExerciseTypeSerializer(read_only=True)
-
-    class Meta:
-        model = ExerciseLog
-        fields = ["id", "exercise_type"]
-
-
-class ExerciseLogWriteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ExerciseLog
-        fields = ["exercise_type"]
-
-
-class ExerciseSetReadSerializer(serializers.ModelSerializer):
+class ExerciseSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseSet
         fields = ["id", "reps", "weight_kg", "rpe", "rir"]
+        read_only_fields = ["id"]
 
 
-class ExerciseSetWriteSerializer(serializers.ModelSerializer):
+class ExerciseLogWriteSerializer(serializers.ModelSerializer):
+    exercise_sets = ExerciseSetSerializer(many=True)
+
     class Meta:
-        model = ExerciseSet
-        fields = ["reps", "weight_kg", "rpe", "rir"]
+        model = ExerciseLog
+        fields = ["id", "exercise_sets", "exercise_type"]
+        read_only_fields = ["id"]
+
+
+class ExerciseLogReadSerializer(serializers.ModelSerializer):
+    exercise_type = ExerciseTypeSerializer()
+    exercise_sets = ExerciseSetSerializer(many=True)
+
+    class Meta:
+        model = ExerciseLog
+        fields = ["id", "exercise_type", "exercise_sets"]
+
+
+class WorkoutLogWriteSerializer(serializers.ModelSerializer):
+    exercise_logs = ExerciseLogWriteSerializer(many=True)
+
+    class Meta:
+        model = WorkoutLog
+        fields = ["id", "begintime", "endtime", "exercise_logs"]
+        read_only_fields = ["id"]
+
+    def create(self, validated_data):
+        exercises_data = validated_data.pop("exercise_logs")
+
+        workout_log = WorkoutLog.objects.create(**validated_data)
+
+        for exercise_data in exercises_data:
+            sets_data = exercise_data.pop("exercise_sets")
+
+            exercise_log = ExerciseLog.objects.create(
+                workout_log=workout_log, **exercise_data
+            )
+
+            for set_data in sets_data:
+                ExerciseSet.objects.create(exercise_log=exercise_log, **set_data)
+
+        return workout_log
+
+    def validate(self, data):
+        if data["endtime"] <= data["begintime"]:
+            raise serializers.ValidationError("End time must be after begin time.")
+        return data
+
+    def to_representation(self, instance):
+        serializer = WorkoutLogReadSerializer(instance)
+        return serializer.data
+
+
+class WorkoutLogReadSerializer(serializers.ModelSerializer):
+    exercise_logs = ExerciseLogReadSerializer(many=True)
+
+    class Meta:
+        model = WorkoutLog
+        fields = ["id", "begintime", "endtime", "exercise_logs"]
 
 
 class MeasurementTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = MeasurementType
         fields = ["id", "name", "unit"]
-        read_only_fields = fields
 
 
 class MeasurementReadSerializer(serializers.ModelSerializer):
-    measurement_type = MeasurementTypeSerializer(read_only=True)
+    measurement_type = MeasurementTypeSerializer()
 
     class Meta:
         model = Measurement
-        fields = ["id", "measurement_type", "value", "created"]
+        fields = ["id", "measurement_type", "value", "date"]
 
 
 class MeasurementWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Measurement
-        fields = ["measurement_type", "value"]
+        fields = ["id", "date", "value", "measurement_type"]
+        read_only_fields = ["id"]
+
+    def to_representation(self, instance):
+        serializer = MeasurementReadSerializer(instance)
+        return serializer.data

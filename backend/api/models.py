@@ -14,7 +14,7 @@ class WorkoutLog(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Workout day:{self.begintime.date} - Duration: {self.get_duration()}"
+        return f"Workout day:{self.begintime.timestamp()} - Duration: {self.get_duration()}"
 
     def get_duration(self):
         return naturaldelta(self.endtime - self.begintime)
@@ -36,7 +36,7 @@ class ExerciseType(models.Model):
 class ExerciseLog(models.Model):
     exercise_type = models.ForeignKey(ExerciseType, on_delete=models.CASCADE)
     workout_log = models.ForeignKey(
-        WorkoutLog, on_delete=models.CASCADE, related_name="exercises"
+        WorkoutLog, on_delete=models.CASCADE, related_name="exercise_logs"
     )
 
     def __str__(self):
@@ -56,7 +56,7 @@ class ExerciseLog(models.Model):
 
 class ExerciseSet(models.Model):
     exercise_log = models.ForeignKey(
-        ExerciseLog, on_delete=models.CASCADE, related_name="sets"
+        ExerciseLog, on_delete=models.CASCADE, related_name="exercise_sets"
     )
 
     reps = models.PositiveSmallIntegerField()
@@ -109,6 +109,7 @@ class Measurement(models.Model):
     value = models.DecimalField(max_digits=5, decimal_places=2)
     created = models.DateTimeField(auto_now_add=True)
 
+    date = models.DateField()
     measurement_type = models.ForeignKey(MeasurementType, on_delete=models.CASCADE)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="measurements"

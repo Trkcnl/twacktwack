@@ -15,8 +15,7 @@ from .serializers import (
     WorkoutLogWriteSerializer,
     ExerciseLogReadSerializer,
     ExerciseLogWriteSerializer,
-    ExerciseSetReadSerializer,
-    ExerciseSetWriteSerializer,
+    ExerciseSetSerializer,
     ExerciseTypeSerializer,
 )
 from .models import (
@@ -76,7 +75,7 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
 
 class MeasurementTypeViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    queryset = MeasurementType.objects.order_by("name")
+    queryset = MeasurementType.objects.order_by("id")
     serializer_class = MeasurementTypeSerializer
     permission_classes = [AllowAny]
 
@@ -132,7 +131,7 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
         return ExerciseLog.objects.filter(workout_log__user=self.request.user)
 
     def get_serializer_class(self):
-        if self.action in ["create", "update", "partial_update"]:
+        if self.action in ["create", "update", "partial_update", "destroy"]:
             return ExerciseLogWriteSerializer
         return ExerciseLogReadSerializer
 
@@ -145,16 +144,12 @@ class ExerciseLogViewSet(viewsets.ModelViewSet):
 
 class ExerciseSetViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
+    serializer_class = ExerciseSetSerializer
 
     def get_queryset(self):
         return ExerciseSet.objects.filter(
             exercise_log__workout_log__user=self.request.user
         )
-
-    def get_serializer_class(self):
-        if self.action in ["create", "update", "partial_update"]:
-            return ExerciseSetWriteSerializer
-        return ExerciseSetReadSerializer
 
     def perform_create(self, serializer):
         exercise = get_object_or_404(

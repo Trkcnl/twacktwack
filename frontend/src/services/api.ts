@@ -1,7 +1,9 @@
 import axios from "axios";
 
+const baseURL = import.meta.env.VITE_API_URL;
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL: baseURL,
     headers: {
         "Content-Type": "application/json",
     },
@@ -26,13 +28,12 @@ api.interceptors.response.use(
     },
     async (error) => {
         const originalRequest = error.config;
-
         if (!error.response) {
             alert("Network Error");
 
             return Promise.reject(error);
         }
-        const statusCode = error.response.statusCode;
+        const statusCode = error.response.status;
         const errorMessage =
             error.response.data.message ||
             "Oepsie Woepsie the Website is Gonzie!";
@@ -41,16 +42,12 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             try {
                 // Request new token
+                const refreshToken = localStorage.getItem("refresh")
+                const response = await axios.post(`${baseURL}api/v1/auth/token/refresh/`, { refresh: refreshToken });
+                const newAccessToken = response.data.access;
 
-                // const refreshToken = localStorage.getItem("refresh")
-                // Make a call to your backend to refresh (pseudo-code for now)
-                // const response = await axios.post(`${import.meta.env.VITE_API_URL}/token/refresh/`, { refresh: refreshToken });
-                // const newAccessToken = response.data.access;
-
-                // localStorage.setItem("access", newAccessToken);
-
-                // Fix: Update the header on the ORIGINAL request config
-                // originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                localStorage.setItem("access", newAccessToken);
+                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
                 return axios(error.config);
             } catch (refreshError) {
