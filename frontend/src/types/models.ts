@@ -26,6 +26,7 @@ export interface UserProfile {
 
 export interface WorkoutLog {
     readonly id: number;
+    workoutdate: string;
     begintime: string;
     endtime: string;
     exercise_logs: ExerciseLog[];
