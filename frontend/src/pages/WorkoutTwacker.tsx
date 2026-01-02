@@ -1,460 +1,464 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import {format, add, set} from 'date-fns'
+import { useEffect, useState } from 'react';
+import { useForm, useFieldArray, useFormContext } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { format, add, set, parseISO } from 'date-fns';
+import { Plus, Trash2, Save, X, Edit2, Dumbbell } from 'lucide-react';
+
+// --- IMPORTS (Your API) ---
 import api from '../services/api';
-import type { ExerciseSet, ExerciseLog, ExerciseType, WorkoutLog } from '../types/models';
+import type { ExerciseType, WorkoutLog } from '../types/models';
+
+// --- SHADCN UI IMPORTS ---
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Separator } from "@/components/ui/separator";
+
+// ------------------------------------------------------------------
+// 1. DEFINE THE SCHEMA
+// ------------------------------------------------------------------
+
+const setSchema = z.object({
+  weight_kg: z.coerce.number<number>().min(0, "Please enter a positive weight"),
+  reps: z.coerce.number<number>().min(0, "Reps can not have a negative value"),
+  rpe: z.coerce.number<number>().min(0).max(10).optional(),
+  rir: z.coerce.number<number>().min(0).optional(),
+});
+
+const exerciseLogSchema = z.object({
+  exercise_type: z.string().min(1, "Please select an exercise"), 
+  exercise_sets: z.array(setSchema)
+});
+
+const workoutSchema = z.object({
+  workoutdate: z.string(),
+  begintime: z.string(), // We will store full ISO strings here
+  endtime: z.string(),
+  exercise_logs: z.array(exerciseLogSchema)
+});
+
+export type WorkoutFormValues = z.infer<typeof workoutSchema>;
+
+// ------------------------------------------------------------------
+// 2. SUB-COMPONENTS
+// ------------------------------------------------------------------
+
+// Component A: Manages the list of Sets
+const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
+  const { control } = useFormContext<WorkoutFormValues>();
+  
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `exercise_logs.${exerciseIndex}.exercise_sets`
+  });
+
+  return (
+    <div className="p-4 pt-0">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-15">Set</TableHead>
+            <TableHead>kg</TableHead>
+            <TableHead>Reps</TableHead>
+            <TableHead>RPE</TableHead>
+            <TableHead>RIR</TableHead>
+            <TableHead className="w-12.5"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {fields.map((field, index) => (
+            <TableRow key={field.id}>
+              <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+              <TableCell>
+                <FormField
+                  control={control}
+                  name={`exercise_logs.${exerciseIndex}.exercise_sets.${index}.weight_kg`}
+                  render={({ field }) => (
+                    <FormItem>
+                        <FormControl>
+                            <Input type="number" className="h-8 w-20" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TableCell>
+              <TableCell>
+                <FormField
+                  control={control}
+                  name={`exercise_logs.${exerciseIndex}.exercise_sets.${index}.reps`}
+                  render={({ field }) => (
+                    <FormControl>
+                      <Input type="number" className="h-8 w-20" {...field} />
+                    </FormControl>
+                  )}
+                />
+              </TableCell>
+              <TableCell>
+                <FormField
+                    control={control}
+                    name={`exercise_logs.${exerciseIndex}.exercise_sets.${index}.rpe`}
+                    render={({ field }) => <FormControl><Input type="number" className="h-8 w-20" {...field} /></FormControl>}
+                />
+              </TableCell>
+              <TableCell>
+                <FormField
+                    control={control}
+                    name={`exercise_logs.${exerciseIndex}.exercise_sets.${index}.rir`}
+                    render={({ field }) => <FormControl><Input type="number" className="h-8 w-20" {...field} /></FormControl>}
+                />
+              </TableCell>
+              <TableCell>
+                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                  <X className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => append({ weight_kg: 0, reps: 0, rpe: 8, rir: 2 })}
+        className="mt-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+      >
+        <Plus className="w-4 h-4 mr-2" /> Add Set
+      </Button>
+    </div>
+  );
+};
+
+// Component B: Manages the list of Exercises
+const ExerciseList = ({ exerciseTypes }: { exerciseTypes: ExerciseType[] }) => {
+  const { control } = useFormContext<WorkoutFormValues>();
+  
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "exercise_logs"
+  });
+
+  return (
+    <div className="space-y-6">
+      {fields.map((field, index) => (
+        <div key={field.id} className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between p-3 bg-muted/40 border-b">
+            <div className="flex items-center gap-4 flex-1">
+              <Badge variant="secondary" className="px-2">#{index + 1}</Badge>
+              
+              <FormField
+                control={control}
+                name={`exercise_logs.${index}.exercise_type`}
+                render={({ field }) => (
+                  <FormItem className="flex-1 max-w-75 mb-0 space-y-0">
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="bg-background h-9">
+                            <SelectValue placeholder="Select exercise" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {exerciseTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.id.toString()}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            </div>
+            <Button
+              type="button" variant="ghost" size="sm" onClick={() => remove(index)}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 px-2"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+          <SetList exerciseIndex={index} />
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => append({ exercise_type: "", exercise_sets: [] })}
+        className="w-full border-dashed h-12 text-muted-foreground hover:text-primary hover:border-primary/50"
+      >
+        <Plus className="w-4 h-4 mr-2" /> Add Another Exercise
+      </Button>
+    </div>
+  );
+};
+
+// ------------------------------------------------------------------
+// 3. MAIN COMPONENT
+// ------------------------------------------------------------------
 
 export const WorkoutTwacker = () => {
-    // --- STATE: History Logs ---
     const [logs, setLogs] = useState<WorkoutLog[]>([]);
     const [exerciseTypes, setExerciseTypes] = useState<ExerciseType[]>([]);
-
-    // --- STATE: UI & Animation ---
-    const [isFormOpen, setIsFormOpen] = useState(true);
-    const [isAnimating, setIsAnimating] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    // --- STATE: Form Data ---
-    const initialFormState = {
-        id: 1,
-        begintime: new Date().toISOString(), // Format: YYYY-MM-DDTHH:mm
-        endtime: add(new Date(), {hours:1}).toISOString(),
-        exercise_logs: [] as ExerciseLog[]
-    };
+    const form = useForm<WorkoutFormValues>({
+        resolver: zodResolver(workoutSchema),
+        defaultValues: {
+            workoutdate: new Date().toISOString(),
+            begintime: new Date().toISOString(),
+            endtime: add(new Date(), { hours: 1 }).toISOString(),
+            exercise_logs: []
+        },
+        mode: "onChange",
+    });
 
-    const [formData, setFormData] = useState<WorkoutLog>(initialFormState);
+    const onSubmit = async (data: WorkoutFormValues) => {
+        const payload = {
+            begintime: data.begintime,
+            endtime: data.endtime,
+            exercise_logs: data.exercise_logs.map(log => ({
+                exercise_type: parseInt(log.exercise_type), 
+                exercise_sets: log.exercise_sets
+            }))
+        };
 
-    const exerciseTypesMap = useMemo(() => {
-        const map: Record<number, ExerciseType> = {};
-
-        exerciseTypes.forEach(exerciseType => {
-            map[exerciseType.id] = exerciseType;
-        });
-        return map;
-    }, [exerciseTypes]);
-
-    // --- HELPER: Transitions ---
-    const handleTransition = (shouldOpen: boolean, callback?: () => void) => {
-        if (isFormOpen === shouldOpen) return;
-        setIsFormOpen(true); // Always ensure render is true first
-        setIsAnimating(true); // Start animation
-
-        setTimeout(() => {
-            if (!shouldOpen) {
-                setIsFormOpen(false); // Remove from DOM after fade out
-                setEditingId(null);
-                setFormData(initialFormState);
+        try {
+            if (editingId) {
+                // Mock update for now
+                setLogs(prev => prev.map(log => 
+                    log.id === editingId ? { ...payload, id: editingId } as unknown as WorkoutLog : log
+                ));
+            } else {
+                const response = await api.post("api/v1/workouts/", payload);
+                setLogs([response.data, ...logs]);
             }
-            if (callback) callback();
-            
-            requestAnimationFrame(() => setIsAnimating(false));
-        }, 150);
+            handleCloseForm();
+        } catch (error) {
+            console.error("Submission failed", error);
+        }
     };
 
     const handleOpenForm = () => {
-        if (!isFormOpen) {
-            setFormData(initialFormState);
-            handleTransition(true);
-        }
-        else{
-            handleCloseForm()
-        }
+        setIsFormOpen(true);
+        form.reset({
+            workoutdate: new Date().toISOString(),
+            begintime: new Date().toISOString(),
+            endtime: add(new Date(), { hours: 1 }).toISOString(),
+            exercise_logs: []
+        });
+        setEditingId(null);
     };
 
     const handleCloseForm = () => {
-        handleTransition(false);
+        setIsFormOpen(false);
+        setEditingId(null);
+        form.reset();
     };
 
     const handleEdit = (log: WorkoutLog) => {
-        const prepData = () => {
-            setFormData({
-                id: log.id,
-                begintime: log.begintime,
-                endtime: log.endtime,
-                exercise_logs: log.exercise_logs
-            });
-            setEditingId(log.id);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        const formCompatibleData: WorkoutFormValues = {
+            workoutdate: log.workoutdate,
+            begintime: log.begintime,
+            endtime: log.endtime,
+            exercise_logs: log.exercise_logs.map(ex => ({
+                exercise_type: ex.exercise_type.id.toString(),
+                exercise_sets: ex.exercise_sets
+            }))
         };
-
-        if (isFormOpen) {
-            handleTransition(false, () => {
-                // Quick reset then reopen
-                setTimeout(() => handleTransition(true, prepData), 250);
-            });
-        } else {
-            handleTransition(true, prepData);
-        }
-    };
-
-    
-
-    // --- FORM LOGIC: Nested Updates ---
-
-    // 1. Add a new Exercise Block
-    const addExercise = () => {
-        exerciseTypes.map(e => {console.log(e)})
-        const newExercise: ExerciseLog = {
-            id: Date.now(), // Temp ID
-            exercise_type: exerciseTypes[0], // Default to first available
-            exercise_sets: []
-        };
-        setFormData(prev => ({
-            ...prev,
-            exercise_logs: [...prev.exercise_logs, newExercise]
-        }));
-    };
-
-    // 2. Remove an Exercise Block
-    const removeExercise = (index: number) => {
-        setFormData(prev => ({
-            ...prev,
-            exercise_logs: prev.exercise_logs.filter((_, i) => i !== index)
-        }));
-    };
-
-    
-
-    // 3. Change Exercise Type
-    const updateExerciseType = (index: number, typeId: number) => {
-        const newLogs = [...formData.exercise_logs];
-        newLogs[index] = { ...newLogs[index], exercise_type: exerciseTypesMap[typeId] };
-        setFormData({ ...formData, exercise_logs: newLogs });
-    };
-
-    // 4. Add Set to specific Exercise
-    const addSet = (exerciseIndex: number) => {
-        const newSet: ExerciseSet = {
-            id: Date.now() + Math.random(), // Temp ID
-            weight_kg: 0,
-            reps: 0,
-            rpe: 8,
-            rir: 2
-        };
-        const newLogs = [...formData.exercise_logs];
-        newLogs[exerciseIndex] = {
-            ...newLogs[exerciseIndex],
-            exercise_sets: [...newLogs[exerciseIndex].exercise_sets, newSet]
-        };
-        setFormData({ ...formData, exercise_logs: newLogs });
-    };
-
-    // 5. Update Set Data
-    const updateSet = (exerciseIndex: number, setIndex: number, field: keyof ExerciseSet, value: number) => {
-        const newLogs = [...formData.exercise_logs];
-        const targetSets = [...newLogs[exerciseIndex].exercise_sets];
         
-        targetSets[setIndex] = { ...targetSets[setIndex], [field]: value };
-        newLogs[exerciseIndex] = { ...newLogs[exerciseIndex], exercise_sets: targetSets };
-        
-        setFormData({ ...formData, exercise_logs: newLogs });
+        setEditingId(log.id);
+        setIsFormOpen(true);
+        // Timeout ensures the form is mounted before reset happens
+        setTimeout(() => form.reset(formCompatibleData), 0);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // 6. Remove Set
-    const removeSet = (exerciseIndex: number, setIndex: number) => {
-        const newLogs = [...formData.exercise_logs];
-        newLogs[exerciseIndex] = {
-            ...newLogs[exerciseIndex],
-            exercise_sets: newLogs[exerciseIndex].exercise_sets.filter((_, i) => i !== setIndex)
-        };
-        setFormData({ ...formData, exercise_logs: newLogs });
-    };
+    useEffect(() => {
+        api.get("api/v1/exercise-types/").then(e => setExerciseTypes(e.data));
+        api.get("api/v1/workouts/").then(e => setLogs(e.data));
+    }, []);
 
-    // --- SUBMIT ---
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        
-        if (editingId) {
-            setLogs(prev => prev.map(log => 
-                log.id === editingId 
-                    ? { ...formData, id: editingId } as WorkoutLog 
-                    : log
-            ));
-        } else {
-            const payload = {
-                begintime: formData.begintime,
-                endtime: formData.endtime,
-                // Map over the logs to transform them
-                exercise_logs: formData.exercise_logs.map(log => ({
-                    // 1. Extract just the ID for the backend
-                    exercise_type: log.exercise_type.id, 
-                    
-                    // 2. Keep the sets as they are (since they are already correct)
-                    exercise_sets: log.exercise_sets,
-                }))
-            };
-            api.post("api/v1/workouts/", payload).then(e => {setLogs([e.data, ...logs]); console.log(e.data)})
-        }
-        handleCloseForm();
-    };
-
-    // --- RENDER HELPERS ---
-    // Calculate total volume (Sets * Reps * Weight) for summary
     const calculateVolume = (log: WorkoutLog) => {
         let volume = 0;
         log.exercise_logs.forEach(ex => {
-            ex.exercise_sets.forEach(set => {
-                volume += set.weight_kg * set.reps;
-            });
+            ex.exercise_sets.forEach(set => volume += set.weight_kg * set.reps);
         });
         return volume;
     };
 
-    useEffect(() => {
-        api.get("api/v1/exercise-types/").then(e => {setExerciseTypes(e.data)})
-    }, 
-    []);
+    // Helper for handling Date Input changes
+    const onDateChange = (newDateString: string) => {
+        if (!newDateString) return; // Handle clear/invalid
 
-    useEffect(() => {
-        api.get("api/v1/workouts/").then(e => {setLogs(e.data)})
-    }, 
-    []);
+        const currentStart = parseISO(form.getValues("begintime"));
+        const currentEnd = parseISO(form.getValues("endtime"));
+        
+        const [year, month, day] = newDateString.split('-').map(Number);
+
+        // Update Start Time Date
+        const newStart = set(currentStart, { year, month: month - 1, date: day });
+        form.setValue("begintime", newStart.toISOString(), { shouldDirty: true, shouldValidate: true });
+
+        // Update End Time Date (Optional: keep end time on same day)
+        const newEnd = set(currentEnd, { year, month: month - 1, date: day });
+        form.setValue("endtime", newEnd.toISOString(), { shouldDirty: true, shouldValidate: true });
+    };
+
+    const onTimeChange = (fieldName: "begintime" | "endtime", newTimeString: string) => {
+        if (!newTimeString) return;
+
+        const currentIso = form.getValues(fieldName);
+        const currentDate = parseISO(currentIso);
+        
+        const [hours, minutes] = newTimeString.split(':').map(Number);
+        
+        const newDate = set(currentDate, { hours, minutes });
+        form.setValue(fieldName, newDate.toISOString(), { shouldDirty: true, shouldValidate: true });
+    };
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
-            
-            {/* 1. TOP SECTION: Action Card */}
-            <div className="grid grid-cols-1">
-                <div 
-                    onClick={handleOpenForm}
-                    className={`cursor-pointer p-6 rounded-xl border-2 transition-all hover:shadow-lg group
-                        ${isFormOpen 
-                            ? 'border-green-500 bg-green-50' 
-                            : 'border-gray-200 bg-white hover:border-green-300'}`}
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-bold text-gray-800 group-hover:text-green-600">Log Workout</h3>
-                        <span className="p-2 bg-green-100 text-green-600 rounded-full">💪</span>
-                    </div>
-                    <p className="text-sm text-gray-500">
-                        Record a new session including multiple exercises, sets, reps, and RPE.
-                    </p>
-                </div>
-            </div>
-
-            {/* 2. MIDDLE SECTION: The Complex Form */}
-            {isFormOpen && (
-                <div 
-                    className={`
-                        bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden
-                        transform transition-all duration-300 ease-in-out
-                        ${isAnimating ? 'opacity-0 translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100'}
-                    `}
-                >
-                    {/* Header */}
-                    <div className="px-6 py-4 border-b bg-green-600 flex justify-between items-center">
-                        <h2 className="text-white font-bold text-lg">
-                            {editingId ? 'Edit Workout' : 'New Workout Session'}
-                        </h2>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="p-6 space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-lg">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Workout Day</label>
-                                <input 
-                                    type="date" required
-                                    value={format(formData.begintime, "yyyy-MM-dd")}
-                                    onChange={e => setFormData({...formData, 
-                                        begintime: set(formData.begintime, {
-                                            year: parseInt(e.target.value.split("-")[0]),
-                                            month: parseInt(e.target.value.split("-")[1]) - 1,
-                                            date: parseInt(e.target.value.split("-")[2]),
-                                        }).toISOString(),
-                                        endtime: set(formData.endtime, {
-                                            year: parseInt(e.target.value.split("-")[0]),
-                                            month: parseInt(e.target.value.split("-")[1]) - 1,
-                                            date: parseInt(e.target.value.split("-")[2]),
-                                        }).toISOString()
-                                    })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Start Time</label>
-                                <input 
-                                    type="time" required
-                                    value={format(formData.begintime, "kk:mm")}
-                                    onChange={e => setFormData({...formData, begintime: set(formData.begintime, {hours: parseInt(e.target.value.split(":")[0]), minutes: parseInt(e.target.value.split(":")[0])}).toISOString()})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">End Time</label>
-                                <input 
-                                    type="time" required
-                                    value={format(formData.endtime, "kk:mm")}
-                                    onChange={e => setFormData({...formData, endtime: set(formData.begintime, {hours: parseInt(e.target.value.split(":")[0]), minutes: parseInt(e.target.value.split(":")[0])}).toISOString()})}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        {/* B. Exercises List */}
-                        <div className="space-y-6">
-                            {formData.exercise_logs.map((exercise, exIndex) => (
-                                <div key={exercise.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                                    {/* Exercise Header */}
-                                    <div className="bg-gray-100 px-4 py-3 flex justify-between items-center">
-                                        <div className="flex items-center gap-3 flex-1">
-                                            <span className="font-bold text-gray-600">#{exIndex + 1}</span>
-                                            <select 
-                                                value={exercise.exercise_type.id}
-                                                onChange={(e) => updateExerciseType(exIndex, Number(e.target.value))}
-                                                className="bg-white border border-gray-300 text-gray-800 text-sm rounded-lg focus:ring-green-500 focus:border-green-500 block w-full max-w-xs p-2"
-                                            >
-                                                {exerciseTypes.map(type => (
-                                                    <option key={type.id} value={type.id}>{type.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => removeExercise(exIndex)}
-                                            className="text-red-500 hover:text-red-700 text-sm font-medium"
-                                        >
-                                            Remove Exercise
-                                        </button>
-                                    </div>
-
-                                    {/* Sets Table */}
-                                    <div className="p-4 overflow-x-auto">
-                                        <table className="w-full text-sm text-left text-gray-500">
-                                            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                                <tr>
-                                                    <th className="px-3 py-2">Set</th>
-                                                    <th className="px-3 py-2">kg</th>
-                                                    <th className="px-3 py-2">Reps</th>
-                                                    <th className="px-3 py-2">RPE</th>
-                                                    <th className="px-3 py-2">RIR</th>
-                                                    <th className="px-3 py-2"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {exercise.exercise_sets.map((set, setIndex) => (
-                                                    <tr key={set.id} className="border-b">
-                                                        <td className="px-3 py-2 font-medium">{setIndex + 1}</td>
-                                                        <td className="px-3 py-2">
-                                                            <input type="number" className="w-16 p-1 border rounded" value={set.weight_kg || ''} onChange={(e) => updateSet(exIndex, setIndex, 'weight_kg', Number(e.target.value))} />
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <input type="number" className="w-16 p-1 border rounded" value={set.reps || ''} onChange={(e) => updateSet(exIndex, setIndex, 'reps', Number(e.target.value))} />
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <input type="number" className="w-16 p-1 border rounded" value={set.rpe || ''} onChange={(e) => updateSet(exIndex, setIndex, 'rpe', Number(e.target.value))} />
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            <input type="number" className="w-16 p-1 border rounded" value={set.rir || ''} onChange={(e) => updateSet(exIndex, setIndex, 'rir', Number(e.target.value))} />
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right">
-                                                            <button type="button" onClick={() => removeSet(exIndex, setIndex)} className="text-red-500 hover:text-red-700">✕</button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => addSet(exIndex)}
-                                            className="mt-2 text-xs font-bold text-green-600 hover:text-green-800 flex items-center gap-1"
-                                        >
-                                            + Add Set
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-
-                            <button 
-                                type="button" 
-                                onClick={addExercise}
-                                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-500 hover:text-green-600 transition-colors font-medium"
-                            >
-                                + Add Another Exercise
-                            </button>
-                        </div>
-
-                        {/* Footer Buttons */}
-                        <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button type="button" onClick={handleCloseForm} className="px-5 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
-                            <button 
-                                type="submit" 
-                                className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold shadow-md transition-transform active:scale-95"
-                            >
-                                {editingId ? 'Update Workout' : 'Save Workout'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+        <div className="space-y-8 max-w-5xl mx-auto p-4 md:p-8">
+            {/* ACTION HEADER */}
+            {!isFormOpen && (
+                <Card className="hover:border-green-500 transition-all cursor-pointer group" onClick={handleOpenForm}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-xl font-bold group-hover:text-green-600 transition-colors">
+                            Log Workout
+                        </CardTitle>
+                        <Dumbbell className="h-6 w-6 text-muted-foreground group-hover:text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground">Record a new session.</p>
+                    </CardContent>
+                </Card>
             )}
 
-            {/* 3. BOTTOM SECTION: History Table */}
-            <div className="bg-white rounded-xl shadow border border-gray-200">
-                <div className="p-5 border-b border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-800">Workout History</h3>
-                </div>
-                
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-gray-50 text-gray-500 font-semibold text-xs uppercase tracking-wider">
-                            <tr>
-                                <th className="px-6 py-4">Date</th>
-                                <th className="px-6 py-4">Time</th>
-                                <th className="px-6 py-4">Exercises</th>
-                                <th className="px-6 py-4">Total Vol</th>
-                                <th className="px-6 py-4 text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {logs.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
-                                        No workouts logged yet. Go get some gains!
-                                    </td>
-                                </tr>
-                            ) : (
-                                logs.map(log => {
-                                    const start = new Date(log.begintime);
-                                    const end = new Date(log.endtime);
-                                    const duration = Math.round((end.getTime() - start.getTime()) / 60000);
+            {/* FORM AREA */}
+            {isFormOpen && (
+                <Card className="border-green-500/20 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                    <CardHeader className="bg-muted/30 border-b pb-4">
+                        <CardTitle className="flex items-center gap-2">
+                            {editingId ? <Edit2 className="w-5 h-5"/> : <Plus className="w-5 h-5"/>}
+                            {editingId ? 'Edit Workout' : 'New Workout Session'}
+                        </CardTitle>
+                    </CardHeader>
+                    
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)}>
+                            <CardContent className="space-y-6 pt-6">
+                                {/* DATE & TIME */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <FormField
+                                        control={form.control}
+                                        name="workoutdate"
+                                        render={() => (
+                                            <FormItem>
+                                                <FormLabel>Date</FormLabel>
+                                                <FormControl>
+                                                  <Input 
+                                                    type="date" 
+                                                    // TRANSFORM: ISO -> yyyy-MM-dd
+                                                    value={format(parseISO(form.watch("begintime")), "yyyy-MM-dd")} 
+                                                    onChange={(e) => onDateChange(e.target.value)}
+                                                  />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="begintime"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Start Time</FormLabel>
+                                                <FormControl>
+                                                  <Input 
+                                                    type="time" 
+                                                    // TRANSFORM: ISO -> HH:mm
+                                                    value={format(parseISO(field.value), "HH:mm")}
+                                                    onChange={(e) => onTimeChange("begintime", e.target.value)}
+                                                  />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="endtime"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>End Time</FormLabel>
+                                                <FormControl>
+                                                  <Input 
+                                                    type="time" 
+                                                    // TRANSFORM: ISO -> HH:mm
+                                                    value={format(parseISO(field.value), "HH:mm")}
+                                                    onChange={(e) => onTimeChange("endtime", e.target.value)}
+                                                  />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
 
-                                    return (
-                                        <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 text-gray-900 font-medium">
-                                                {start.toLocaleDateString()}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-600 text-sm">
-                                                {start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
-                                                <span className="text-gray-400 mx-1">→</span>
-                                                {end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                <div className="text-xs text-gray-400 mt-0.5">({duration} mins)</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-1">
-                                                    {log.exercise_logs.map((ex, i) => (
-                                                        <span key={i} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
-                                                            {ex.exercise_type.id}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-600 font-mono text-sm">
-                                                {calculateVolume(log).toLocaleString()} kg
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={() => handleEdit(log)}
-                                                    className="text-gray-400 hover:text-green-600 font-semibold text-sm"
-                                                >
-                                                    Edit
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                <Separator />
+                                <ExerciseList exerciseTypes={exerciseTypes} />
+                            </CardContent>
+                            
+                            <CardFooter className="flex justify-end gap-3 border-t bg-muted/30 p-6">
+                                <Button type="button" variant="outline" onClick={handleCloseForm}>Cancel</Button>
+                                <Button type="submit" className="bg-green-600 hover:bg-green-700">
+                                    <Save className="w-4 h-4 mr-2" />
+                                    {editingId ? 'Update Workout' : 'Save Workout'}
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Form>
+                </Card>
+            )}
+
+            {/* HISTORY TABLE */}
+            <Card>
+                <CardHeader><CardTitle>History</CardTitle></CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Date</TableHead>
+                                <TableHead>Time</TableHead>
+                                <TableHead>Volume</TableHead>
+                                <TableHead className="text-right">Action</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {logs.map(log => (
+                                <TableRow key={log.id}>
+                                    <TableCell className="font-medium">{new Date(log.begintime).toLocaleDateString()}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {format(parseISO(log.begintime), "HH:mm")} - {format(parseISO(log.endtime), "HH:mm")}
+                                    </TableCell>
+                                    <TableCell className="font-mono">{calculateVolume(log).toLocaleString()} kg</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(log)}>
+                                            <Edit2 className="w-4 h-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
         </div>
     );
 };
