@@ -3,11 +3,12 @@ import { useForm, useFieldArray, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, add, set, parseISO } from 'date-fns';
-import { Plus, Trash2, Save, X, Edit2, Dumbbell } from 'lucide-react';
+import { Plus, Trash2, Save, X, Edit2, Dumbbell, ChevronRight, ChevronLeft } from 'lucide-react';
 
 // --- IMPORTS (Your API) ---
-import api from '../services/api';
 import type { ExerciseType, WorkoutLog } from '../types/models';
+import { useWorkouts } from '@/hooks/useWorkouts';
+import { useExerciseTypes } from '@/hooks/useExerciseTypes';
 
 // --- SHADCN UI IMPORTS ---
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 
+
 // ------------------------------------------------------------------
 // 1. DEFINE THE SCHEMA
 // ------------------------------------------------------------------
 
 const setSchema = z.object({
+  id:z.coerce.number<number>(),
   weight_kg: z.coerce.number<number>().min(0, "Please enter a positive weight"),
   reps: z.coerce.number<number>().min(0, "Reps can not have a negative value"),
   rpe: z.coerce.number<number>().min(0).max(10).optional(),
@@ -31,11 +34,13 @@ const setSchema = z.object({
 });
 
 const exerciseLogSchema = z.object({
+  id:z.coerce.number<number>(),
   exercise_type: z.string().min(1, "Please select an exercise"), 
   exercise_sets: z.array(setSchema)
 });
 
 const workoutSchema = z.object({
+  id:z.coerce.number<number>(),
   workoutdate: z.string(),
   begintime: z.string(), // We will store full ISO strings here
   endtime: z.string(),
@@ -126,7 +131,7 @@ const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => append({ weight_kg: 0, reps: 0, rpe: 8, rir: 2 })}
+        onClick={() => append({ id:0, weight_kg: 0, reps: 0, rpe: 8, rir: 2 })}
         className="mt-2 text-green-600 hover:text-green-700 hover:bg-green-50"
       >
         <Plus className="w-4 h-4 mr-2" /> Add Set
@@ -189,7 +194,7 @@ const ExerciseList = ({ exerciseTypes }: { exerciseTypes: ExerciseType[] }) => {
       <Button
         type="button"
         variant="outline"
-        onClick={() => append({ exercise_type: "", exercise_sets: [] })}
+        onClick={() => append({ id:0, exercise_type: "", exercise_sets: [] })}
         className="w-full border-dashed h-12 text-muted-foreground hover:text-primary hover:border-primary/50"
       >
         <Plus className="w-4 h-4 mr-2" /> Add Another Exercise
@@ -203,14 +208,19 @@ const ExerciseList = ({ exerciseTypes }: { exerciseTypes: ExerciseType[] }) => {
 // ------------------------------------------------------------------
 
 export const WorkoutTwacker = () => {
-    const [logs, setLogs] = useState<WorkoutLog[]>([]);
-    const [exerciseTypes, setExerciseTypes] = useState<ExerciseType[]>([]);
+    const {workouts, workouts__isLoading, addWorkout, editWorkout} = useWorkouts();
+    const {exerciseTypes, exerciseTypes__isLoading} = useExerciseTypes();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(5);
+
+
 
     const form = useForm<WorkoutFormValues>({
         resolver: zodResolver(workoutSchema),
         defaultValues: {
+            id: 0,
             workoutdate: new Date().toISOString(),
             begintime: new Date().toISOString(),
             endtime: add(new Date(), { hours: 1 }).toISOString(),
@@ -219,25 +229,38 @@ export const WorkoutTwacker = () => {
         mode: "onChange",
     });
 
+    const totalPages = Math.ceil(workouts.length / itemsPerPage);
+    const currentWorkouts = workouts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    // Reset page when filter changes
+    useEffect(() => setCurrentPage(1), [itemsPerPage]);
+
     const onSubmit = async (data: WorkoutFormValues) => {
         const payload = {
+            id:data.id,
             begintime: data.begintime,
             endtime: data.endtime,
             exercise_logs: data.exercise_logs.map(log => ({
+                id:log.id,
                 exercise_type: parseInt(log.exercise_type), 
-                exercise_sets: log.exercise_sets
+                exercise_sets: log.exercise_sets.map(st => ({
+                  id: st.id,
+                  weight_kg: st.weight_kg,
+                  reps: st.reps,
+                  rir: st.rir,
+                  rpe: st.rpe,
+                }))
             }))
         };
 
         try {
+          
             if (editingId) {
-                // Mock update for now
-                setLogs(prev => prev.map(log => 
-                    log.id === editingId ? { ...payload, id: editingId } as unknown as WorkoutLog : log
-                ));
+                const editPayload = {...payload, id: editingId}
+                console.log(editPayload)
+                await editWorkout(editPayload)
             } else {
-                const response = await api.post("api/v1/workouts/", payload);
-                setLogs([response.data, ...logs]);
+                await addWorkout(payload);
             }
             handleCloseForm();
         } catch (error) {
@@ -248,6 +271,7 @@ export const WorkoutTwacker = () => {
     const handleOpenForm = () => {
         setIsFormOpen(true);
         form.reset({
+            id: 0,
             workoutdate: new Date().toISOString(),
             begintime: new Date().toISOString(),
             endtime: add(new Date(), { hours: 1 }).toISOString(),
@@ -264,12 +288,20 @@ export const WorkoutTwacker = () => {
 
     const handleEdit = (log: WorkoutLog) => {
         const formCompatibleData: WorkoutFormValues = {
-            workoutdate: log.workoutdate,
+            id: log.id,
+            workoutdate: format(parseISO(log.begintime), "yyyy-MM-dd"),
             begintime: log.begintime,
             endtime: log.endtime,
             exercise_logs: log.exercise_logs.map(ex => ({
-                exercise_type: ex.exercise_type.id.toString(),
-                exercise_sets: ex.exercise_sets
+              id:ex.id,
+              exercise_type: ex.exercise_type.id.toString(),
+              exercise_sets: ex.exercise_sets.map(st => ({
+                id: st.id,
+                weight_kg: st.weight_kg,
+                reps: st.reps,
+                rir: st.rir,
+                rpe: st.rpe,
+              }))
             }))
         };
         
@@ -279,11 +311,6 @@ export const WorkoutTwacker = () => {
         setTimeout(() => form.reset(formCompatibleData), 0);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
-
-    useEffect(() => {
-        api.get("api/v1/exercise-types/").then(e => setExerciseTypes(e.data));
-        api.get("api/v1/workouts/").then(e => setLogs(e.data));
-    }, []);
 
     const calculateVolume = (log: WorkoutLog) => {
         let volume = 0;
@@ -323,6 +350,12 @@ export const WorkoutTwacker = () => {
         form.setValue(fieldName, newDate.toISOString(), { shouldDirty: true, shouldValidate: true });
     };
 
+    if (workouts__isLoading || exerciseTypes__isLoading) {
+      return (
+        <div>Loading!</div>
+      )
+    }
+
     return (
         <div className="space-y-8 max-w-5xl mx-auto p-4 md:p-8">
             {/* ACTION HEADER */}
@@ -332,7 +365,7 @@ export const WorkoutTwacker = () => {
                         <CardTitle className="text-xl font-bold group-hover:text-green-600 transition-colors">
                             Log Workout
                         </CardTitle>
-                        <Dumbbell className="h-6 w-6 text-muted-foreground group-hover:text-green-600" />
+                        <Dumbbell className="h-8 w-8 text-muted-foreground group-hover:text-green-600" />
                     </CardHeader>
                     <CardContent>
                         <p className="text-sm text-muted-foreground">Record a new session.</p>
@@ -429,7 +462,26 @@ export const WorkoutTwacker = () => {
 
             {/* HISTORY TABLE */}
             <Card>
-                <CardHeader><CardTitle>History</CardTitle></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle>History</CardTitle>
+                  {/* Page Size Selector */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Rows:</span>
+                        <Select 
+                            value={itemsPerPage.toString()} 
+                            onValueChange={(val) => setItemsPerPage(Number(val))}
+                        >
+                            <SelectTrigger className="w-17.5 h-8">
+                                <SelectValue placeholder="5" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="5">5</SelectItem>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="20">20</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
@@ -441,15 +493,15 @@ export const WorkoutTwacker = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {logs.map(log => (
-                                <TableRow key={log.id}>
-                                    <TableCell className="font-medium">{new Date(log.begintime).toLocaleDateString()}</TableCell>
+                            {currentWorkouts.map(workout => (
+                                <TableRow key={workout.id}>
+                                    <TableCell className="font-medium">{new Date(workout.begintime).toLocaleDateString()}</TableCell>
                                     <TableCell className="text-muted-foreground">
-                                        {format(parseISO(log.begintime), "HH:mm")} - {format(parseISO(log.endtime), "HH:mm")}
+                                        {format(parseISO(workout.begintime), "HH:mm")} - {format(parseISO(workout.endtime), "HH:mm")}
                                     </TableCell>
-                                    <TableCell className="font-mono">{calculateVolume(log).toLocaleString()} kg</TableCell>
+                                    <TableCell className="font-mono">{calculateVolume(workout).toLocaleString()} kg</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(log)}>
+                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(workout)}>
                                             <Edit2 className="w-4 h-4" />
                                         </Button>
                                     </TableCell>
@@ -457,6 +509,34 @@ export const WorkoutTwacker = () => {
                             ))}
                         </TableBody>
                     </Table>
+                    {/* PAGINATION CONTROLS */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between space-x-2 py-4 border-t mt-4">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                            >
+                                <ChevronLeft className="h-4 w-4 mr-2" />
+                                Previous
+                            </Button>
+                            
+                            <div className="text-sm text-muted-foreground">
+                                Page {currentPage} of {totalPages}
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4 ml-2" />
+                            </Button>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

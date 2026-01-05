@@ -6,13 +6,14 @@ import { format, parseISO } from "date-fns";
 import { Scale, Calendar, Activity, ChevronLeft, ChevronRight, Save, Edit2 } from 'lucide-react';
 
 // --- YOUR IMPORTS ---
-import type { Measurement, MeasurementType } from '../types/models';
-import api from "../services/api";
+import type { Measurement} from '../types/models';
+import { useMeasurementTypes } from '@/hooks/useMeasurementTypes';
+import { useMeasurements } from '@/hooks/useMeasurements';
 
 // --- SHADCN IMPORTS ---
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -23,10 +24,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 // ------------------------------------------------------------------
 
 const measurementSchema = z.object({
+    id: z.coerce.number<number>(),
     date: z.string<string>(), // We keep this as ISO string
     value: z.coerce.number<number>().min(0.1, "Value must be greater than 0"),
     // Shadcn Select stores values as strings. We validate it's not empty/zero.
-    measurement_type_id: z.string().min(1, "Please select a type").refine(val => val !== "0", "Select a valid type"),
+    measurement_type: z.string().min(1, "Please select a type").refine(val => val !== "0", "Select a valid type"),
 });
 
 type MeasurementFormValues = z.infer<typeof measurementSchema>;
@@ -37,12 +39,12 @@ type MeasurementFormValues = z.infer<typeof measurementSchema>;
 
 export const BodyTwacker = () => {
     // --- STATE ---
-    const [logs, setLogs] = useState<Measurement[]>([]);
-    const [measurementTypes, setMeasurementTypes] = useState<MeasurementType[]>([]);
+    const {measurements, measurements__isLoading, addMeasurement, editMeasurement } = useMeasurements();
+    const {measurementTypes, measurementTypes__isLoading} = useMeasurementTypes();
     
     // UI State
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editingId, setEditingId] = useState<number | null>(null);
+    const [isFormOpen, setIsFormOpen] = useState<boolean>(false);
+    const [editing, setEditing] = useState<boolean>(false);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -52,9 +54,10 @@ export const BodyTwacker = () => {
     const form = useForm<MeasurementFormValues>({
         resolver: zodResolver(measurementSchema),
         defaultValues: {
+            id: 0,
             date: new Date().toISOString(),
             value: 0,
-            measurement_type_id: "" 
+            measurement_type: "" 
         },
         mode: "onChange"
     });
@@ -63,30 +66,30 @@ export const BodyTwacker = () => {
 
     const handleOpenForm = () => {
         setIsFormOpen(true);
-        setEditingId(null);
+        setEditing(false);
         form.reset({
+            id: 0,
             date: new Date().toISOString(),
             value: 0,
-            measurement_type_id: ""
+            measurement_type: ""
         });
     };
 
     const handleCloseForm = () => {
         setIsFormOpen(false);
-        setEditingId(null);
+        setEditing(false);
         form.reset();
     };
 
     const handleEdit = (log: Measurement) => {
-        setEditingId(log.id);
+        setEditing(true);
         setIsFormOpen(true);
         
-        // Reset form with existing data
-        // Note: We convert ID to string for the Select component
         form.reset({
-            date: log.date, // Assuming API sends ISO or YYYY-MM-DD
+            id: log.id,
+            date: log.date, 
             value: log.value,
-            measurement_type_id: log.measurement_type.id.toString()
+            measurement_type: log.measurement_type.id.toString()
         });
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -94,21 +97,17 @@ export const BodyTwacker = () => {
 
     const onSubmit = async (data: MeasurementFormValues) => {
         const payload = {
-            date: format(parseISO(data.date), "yyyy-MM-dd"), // Ensure Backend gets YYYY-MM-DD
+            id: data.id,
+            date: format(parseISO(data.date), "yyyy-MM-dd"),
             value: data.value,
-            measurement_type: parseInt(data.measurement_type_id)
+            measurement_type: parseInt(data.measurement_type)
         };
 
         try {
-            if (editingId) {
-                // Update Logic
-                const response = await api.put(`api/v1/measurements/${editingId}/`, { ...payload, id: editingId });
-                // Optimistic update or refetch
-                setLogs(prev => prev.map(item => item.id === editingId ? { ...item, ...response.data } : item));
+            if (editing) {
+                editMeasurement(payload)
             } else {
-                // Create Logic
-                const response = await api.post("api/v1/measurements/", payload);
-                setLogs([response.data, ...logs]);
+                addMeasurement(payload)
             }
             handleCloseForm();
         } catch (error) {
@@ -116,22 +115,17 @@ export const BodyTwacker = () => {
         }
     };
 
-    // --- DATA LOADING ---
-    useEffect(() => {
-        api.get<Measurement[]>("api/v1/measurements/").then((e) => setLogs(e.data));
-        api.get<MeasurementType[]>("api/v1/measurement-types/").then((e) => {
-            // Filter out placeholder ID 0 if it comes from API, otherwise just set data
-            setMeasurementTypes(e.data);
-        });
-    }, []);
-
     // --- PAGINATION LOGIC ---
-    const totalPages = Math.ceil(logs.length / itemsPerPage);
-    const currentLogs = logs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = Math.ceil(measurements.length / itemsPerPage);
+    const currentLogs = measurements.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     // Reset page when filter changes
     useEffect(() => setCurrentPage(1), [itemsPerPage]);
 
+
+    if (measurements__isLoading || measurementTypes__isLoading) {
+        return (<div>Loading!</div>)
+    }
 
     return (
         <div className="space-y-8 max-w-5xl mx-auto p-4 md:p-8">
@@ -143,16 +137,14 @@ export const BodyTwacker = () => {
                     onClick={handleOpenForm}
                 >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <div className="space-y-1">
-                            <CardTitle className="text-xl group-hover:text-blue-600 transition-colors">
+                            <CardTitle className="text-xl font-bold group-hover:text-blue-600 transition-colors">
                                 Quick Weight Log
                             </CardTitle>
-                            <CardDescription>
-                                Track your progress without the hassle.
-                            </CardDescription>
-                        </div>
-                        <Scale className="h-8 w-8 text-muted-foreground group-hover:text-blue-600 transition-colors" />
+                            <Scale className="h-8 w-8 text-muted-foreground group-hover:text-blue-600 transition-colors" />
                     </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">Track your progress without the hassle.</p>
+                            </CardContent>
                 </Card>
             )}
 
@@ -161,13 +153,13 @@ export const BodyTwacker = () => {
                 <Card className="border-blue-500/20 shadow-lg animate-in fade-in zoom-in-95 duration-200\">
                     <CardHeader className="bg-blue-50/50 border-b pb-4">
                         <CardTitle className="flex items-center gap-2">
-                            {editingId ? <Edit2 className="w-5 h-5"/> : <Activity className="w-5 h-5"/>}
-                            {editingId ? 'Edit Entry' : 'Log Measurements'}
+                            {editing ? <Edit2 className="w-5 h-5"/> : <Activity className="w-5 h-5"/>}
+                            {editing ? 'Edit Entry' : 'Log Measurements'}
                         </CardTitle>
                     </CardHeader>
 
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)}>
+                        <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.log(errors))}>
                             <CardContent className="space-y-6 pt-6">
                                 <div className="grid grid-cols-1 gap-6 p-2 max-w-xs">
                                     
@@ -203,7 +195,7 @@ export const BodyTwacker = () => {
                                         {/* MEASUREMENT TYPE SELECT */}
                                         <FormField
                                             control={form.control}
-                                            name="measurement_type_id"
+                                            name="measurement_type"
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Type</FormLabel>
@@ -255,7 +247,7 @@ export const BodyTwacker = () => {
                                 </Button>
                                 <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                                     <Save className="w-4 h-4 mr-2" />
-                                    {editingId ? 'Update Log' : 'Save Log'}
+                                    {editing ? 'Update Log' : 'Save Log'}
                                 </Button>
                             </CardContent>
                         </form>
