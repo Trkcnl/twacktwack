@@ -44,6 +44,8 @@ class ExerciseTypeSerializer(serializers.ModelSerializer):
 
 
 class ExerciseSetSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField()
+
     class Meta:
         model = ExerciseSet
         fields = ["id", "reps", "weight_kg", "rpe", "rir"]
@@ -52,6 +54,7 @@ class ExerciseSetSerializer(serializers.ModelSerializer):
 
 class ExerciseLogWriteSerializer(serializers.ModelSerializer):
     exercise_sets = ExerciseSetSerializer(many=True)
+    id = serializers.IntegerField()
 
     class Meta:
         model = ExerciseLog
@@ -83,15 +86,79 @@ class WorkoutLogWriteSerializer(serializers.ModelSerializer):
 
         for exercise_data in exercises_data:
             sets_data = exercise_data.pop("exercise_sets")
-
+            exercise_data.pop(
+                "id"
+            )  # We need the id for update for create it violates unique constraint
             exercise_log = ExerciseLog.objects.create(
                 workout_log=workout_log, **exercise_data
             )
 
             for set_data in sets_data:
+                set_data.pop("id")  # idem (see exercise_data)
                 ExerciseSet.objects.create(exercise_log=exercise_log, **set_data)
 
         return workout_log
+
+    def update(self, instance, validated_data):
+        exercises_data = validated_data.pop("exercise_logs", [])
+
+        # Update WorkoutLog values first
+        instance.begintime = validated_data.get("begintime", instance.begintime)
+        instance.endtime = validated_data.get("endtime", instance.endtime)
+        instance.save()
+
+        # 1. Handle Deletions (Same as before)
+        incoming_exercise_ids = [
+            item.get("id") for item in exercises_data if item.get("id") is not None
+        ]
+        existing_exercise_ids = [item.id for item in instance.exercise_logs.all()]
+
+        instance.exercise_logs.exclude(id__in=incoming_exercise_ids).delete()
+
+        # 2. Handle Create / Update
+        for exercise_data in exercises_data:
+            sets_data = exercise_data.pop("exercise_sets", [])
+            exercise_id = exercise_data.get("id")
+
+            if exercise_id in existing_exercise_ids:
+                ExerciseLog.objects.filter(id=exercise_id, workout_log=instance).update(
+                    **exercise_data
+                )
+
+                current_log_id = exercise_id
+            else:
+                exercise_data.pop("id")
+                new_log = ExerciseLog.objects.create(
+                    workout_log=instance, **exercise_data
+                )
+                current_log_id = new_log.id
+
+            incoming_set_ids = [
+                item.get("id") for item in sets_data if item.get("id") is not None
+            ]
+
+            existing_set_ids = [
+                item.id
+                for item in ExerciseSet.objects.filter(exercise_log_id=current_log_id)
+            ]
+
+            ExerciseSet.objects.filter(exercise_log_id=current_log_id).exclude(
+                id__in=incoming_set_ids
+            ).delete()
+
+            for set_data in sets_data:
+                set_id = set_data.get("id")
+                if set_id in existing_set_ids:
+                    ExerciseSet.objects.filter(
+                        id=set_id, exercise_log_id=current_log_id
+                    ).update(**set_data)
+                else:
+                    set_data.pop("id")
+                    ExerciseSet.objects.create(
+                        exercise_log_id=current_log_id, **set_data
+                    )
+
+        return instance
 
     def validate(self, data):
         if data["endtime"] <= data["begintime"]:
