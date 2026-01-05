@@ -1,6 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../services/api';
-import type { Measurement } from '../types/models';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import api from "../services/api";
+import type { Measurement } from "../types/models";
 
 export const useMeasurements = () => {
   const queryClient = useQueryClient();
@@ -15,17 +15,19 @@ export const useMeasurements = () => {
   });
 
   const addMeasurementMutation = useMutation({
-    mutationFn: (newMeasurement: any) => api.post("api/v1/measurements/", newMeasurement),
+    mutationFn: (newMeasurement: any) =>
+      api.post("api/v1/measurements/", newMeasurement),
     onSuccess: () => {
-      queryClient.invalidateQueries({queryKey:["measurements"]});
-    }
+      queryClient.invalidateQueries({ queryKey: ["measurements"] });
+    },
   });
 
   const editMeasurementMutation = useMutation({
-    mutationFn: (newMeasurement: any) => api.put(`api/v1/measurements/${newMeasurement.id}/`, newMeasurement),
+    mutationFn: (newMeasurement: any) =>
+      api.put(`api/v1/measurements/${newMeasurement.id}/`, newMeasurement),
     onSuccess: () => {
-      queryClient.invalidateQueries({queryKey:["measurements"]});
-    }
+      queryClient.invalidateQueries({ queryKey: ["measurements"] });
+    },
   });
 
   return {
@@ -33,5 +35,5 @@ export const useMeasurements = () => {
     measurements__isLoading: measurementsQuery.isLoading,
     addMeasurement: addMeasurementMutation.mutateAsync,
     editMeasurement: editMeasurementMutation.mutateAsync,
-  }
+  };
 };
