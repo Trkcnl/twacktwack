@@ -51,3 +51,10 @@ export interface ExerciseSet {
   rpe: number;
   rir: number;
 }
+
+export interface PersonalBest {
+    exercise_type: ExerciseType;
+    weight_kg: number;
+    reps: number;
+    date: string;
+}

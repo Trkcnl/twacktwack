@@ -1,5 +1,12 @@
 import { useMemo } from "react";
-import { compareAsc, subDays, format } from "date-fns";
+import {
+  compareAsc,
+  subDays,
+  format,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+} from "date-fns";
 import {
   LineChart,
   Line,
@@ -28,37 +35,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-// ------------------------------------------------------------------
-// 1. MOCK DATA (Replace with API calls later)
-// ------------------------------------------------------------------
-
-const USER_STATS = {
-  name: "Alex",
-  currentWeight: 78.5,
-  totalGymDays: 142,
-  weeklySets: 45,
-};
-
-// Activity Data: Which days the user went to the gym
-const WEEKLY_ACTIVITY = [
-  { day: "Mon", active: true },
-  { day: "Tue", active: true },
-  { day: "Wed", active: false },
-  { day: "Thu", active: true },
-  { day: "Fri", active: true },
-  { day: "Sat", active: false },
-  { day: "Sun", active: false },
-];
+import { usePersonalRecords } from "@/hooks/usePersonalRecords";
 
 // Colors for the Pie Chart slices
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
-
-const PERSONAL_RECORDS = [
-  { exercise: "Bench Press", value: "100 kg", date: "2024-02-15" },
-  { exercise: "Deadlift", value: "140 kg", date: "2024-03-01" },
-  { exercise: "Squat", value: "120 kg", date: "2024-01-20" },
-];
 
 // ------------------------------------------------------------------
 // 2. SUB-COMPONENTS (For cleaner code)
@@ -88,12 +68,13 @@ export const Dashboard = () => {
   const { user } = useAuth();
   const { workouts, workouts__isLoading } = useWorkouts();
   const { measurements, measurements__isLoading } = useMeasurements();
+  const { records, records__isLoading } = usePersonalRecords();
 
   // Pick a random PR to display
-  const randomPR = useMemo(() => {
-    const randomIndex = Math.floor(Math.random() * PERSONAL_RECORDS.length);
-    return PERSONAL_RECORDS[randomIndex];
-  }, []);
+  const randomRecord =
+    records && records.length > 0
+      ? records[Math.floor(Math.random() * records.length)]
+      : null;
 
   const weightHistory = useMemo(() => {
     const today = new Date();
@@ -155,42 +136,63 @@ export const Dashboard = () => {
     });
   }, [measurements]);
 
-  const exerciseTypeSetCount = useMemo(() => {
+  const recentWorkouts = useMemo(() => {
     const today = new Date();
-    // 1. Filter: Get workouts from the last 7 days
-    const recentWorkouts = workouts.filter(
+    return workouts.filter(
       (w) =>
-        compareAsc(new Date(w.begintime), today) < 1 &&
-        compareAsc(new Date(w.begintime), subDays(today, 7)) === 1
+        compareAsc(new Date(w.workoutdate), today) < 1 &&
+        compareAsc(new Date(w.workoutdate), subDays(today, 7)) === 1
     );
+  }, [workouts]);
 
+  const weeklyActivity = useMemo(() => {
+    // 1. Create a Lookup Set for fast checking
+    // Format matches your backend date string "YYYY-MM-DD"
+    const activeDates = new Set(recentWorkouts.map((w) => w.workoutdate));
+
+    const today = new Date();
+
+    // 2. Define the Week Range (Mon - Sun)
+    // Note: weekStartsOn: 1 ensures the array starts on Monday
+    const start = startOfWeek(today, { weekStartsOn: 1 });
+    const end = endOfWeek(today, { weekStartsOn: 1 });
+
+    // 3. Generate all 7 days of this week
+    const calendarDays = eachDayOfInterval({ start, end });
+    // 4. Map to your desired format
+    return calendarDays.map((date) => {
+      const dateString = format(date, "yyyy-MM-dd");
+      return {
+        day: format(date, "eee"), // "Mon", "Tue", etc.
+        active: activeDates.has(dateString),
+        future: compareAsc(date, today),
+      };
+    });
+  }, [recentWorkouts]);
+
+  const exerciseTypeSetCount = (() => {
     const countMap = new Map();
-
-    // 2. Aggregate: Loop through workouts -> logs -> sum up sets
     recentWorkouts.forEach((workout) => {
       workout.exercise_logs.forEach((log) => {
         const typeName = log.exercise_type.name;
         const numberOfSets = log.exercise_sets.length;
-
-        // Add to existing total or initialize with current number
-        const currentTotal = countMap.get(typeName) || 0;
-        countMap.set(typeName, currentTotal + numberOfSets);
+        countMap.set(typeName, (countMap.get(typeName) || 0) + numberOfSets);
       });
     });
-
-    // 3. Transform: Return an array of objects for easy display/charting
     return Array.from(countMap.entries()).map(([name, count]) => ({
       name,
       count,
     }));
-  }, [workouts]);
+  })();
 
-  const totalWeeklySets = exerciseTypeSetCount.reduce(
+  const totalSetsThisWeek = exerciseTypeSetCount.reduce(
     (sum, item) => sum + item.count,
     0
   );
 
-  if (measurements__isLoading || workouts__isLoading) {
+  const distinctDaysAllTime = new Set(workouts.map((w) => w.workoutdate)).size;
+
+  if (measurements__isLoading || workouts__isLoading || records__isLoading) {
     return <div>Loading.</div>;
   }
 
@@ -205,13 +207,13 @@ export const Dashboard = () => {
         />
         <StatCard
           title="Total Gym Days"
-          value={USER_STATS.totalGymDays}
+          value={distinctDaysAllTime}
           icon={CalendarCheck}
           subtext="Lifetime total"
         />
         <StatCard
           title="Weekly Volume"
-          value={totalWeeklySets}
+          value={totalSetsThisWeek}
           icon={Dumbbell}
           subtext="Total sets this week"
         />
@@ -295,21 +297,25 @@ export const Dashboard = () => {
                 <Trophy className="w-5 h-5" /> Personal Record
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-end">
-                <div>
-                  <p className="text-sm text-orange-600/80 font-medium">
-                    {randomPR.exercise}
-                  </p>
-                  <h3 className="text-3xl font-bold text-gray-800">
-                    {randomPR.value}
-                  </h3>
+            {randomRecord ? (
+              <CardContent>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-sm text-orange-600/80 font-medium">
+                      {randomRecord.exercise_type.name}
+                    </p>
+                    <h3 className="text-3xl font-bold text-gray-800">
+                      {randomRecord.weight_kg} kg
+                    </h3>
+                  </div>
+                  <span className="text-xs text-orange-400 bg-white/50 px-2 py-1 rounded">
+                    {randomRecord.date}
+                  </span>
                 </div>
-                <span className="text-xs text-orange-400 bg-white/50 px-2 py-1 rounded">
-                  {randomPR.date}
-                </span>
-              </div>
-            </CardContent>
+              </CardContent>
+            ) : (
+              <div>No records found!</div>
+            )}
           </Card>
 
           {/* B2. WEEKLY ACTIVITY TRACKER */}
@@ -319,18 +325,20 @@ export const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex justify-between items-center">
-                {WEEKLY_ACTIVITY.map((item, index) => (
+                {weeklyActivity.map((item, index) => (
                   <div key={index} className="flex flex-col items-center gap-2">
                     {/* The Dot */}
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center transition-all
                                             ${
-                                              item.active
-                                                ? "bg-green-500 text-white shadow-md shadow-green-200"
-                                                : "bg-gray-100 text-gray-300"
+                                              item.future === 1
+                                                ? "bg-gray-100 text-gray-300"
+                                                : item.active
+                                                  ? "bg-green-500 text-white shadow-md shadow-green-200"
+                                                  : "bg-yellow-500 text-white shadow-md shadow-yellow-200"
                                             }`}
                     >
-                      {item.active && <Activity className="w-4 h-4" />}
+                      <Activity className="w-4 h-4" />
                     </div>
                     {/* The Label */}
                     <span
@@ -353,29 +361,33 @@ export const Dashboard = () => {
               Total sets performed per muscle group this week.
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-62.5 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={exerciseTypeSetCount}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="count"
-                >
-                  {exerciseTypeSetCount.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36} />
-              </PieChart>
-            </ResponsiveContainer>
+          <CardContent className="h-50 flex items-center justify-center">
+            {totalSetsThisWeek > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={exerciseTypeSetCount}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={60}
+                    paddingAngle={5}
+                    dataKey="count"
+                  >
+                    {exerciseTypeSetCount.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}-${entry.name}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div>No exercise acivity for the current week!</div>
+            )}
           </CardContent>
         </Card>
       </div>
