@@ -277,7 +277,7 @@ export const WorkoutTwacker = () => {
     resolver: zodResolver(workoutSchema),
     defaultValues: {
       id: 0,
-      workoutdate: new Date().toISOString(),
+      workoutdate: format(new Date().toISOString(), "yyyy-MM-dd"),
       begintime: new Date().toISOString(),
       endtime: add(new Date(), { hours: 1 }).toISOString(),
       exercise_logs: [],
@@ -330,7 +330,7 @@ export const WorkoutTwacker = () => {
     setIsFormOpen(true);
     form.reset({
       id: 0,
-      workoutdate: new Date().toISOString(),
+      workoutdate: format(new Date().toISOString(), "yyyy-MM-dd"),
       begintime: new Date().toISOString(),
       endtime: add(new Date(), { hours: 1 }).toISOString(),
       exercise_logs: [],
@@ -347,7 +347,7 @@ export const WorkoutTwacker = () => {
   const handleEdit = (log: WorkoutLog) => {
     const formCompatibleData: WorkoutFormValues = {
       id: log.id,
-      workoutdate: format(parseISO(log.begintime), "yyyy-MM-dd"),
+      workoutdate: log.workoutdate,
       begintime: log.begintime,
       endtime: log.endtime,
       exercise_logs: log.exercise_logs.map((ex) => ({
@@ -468,17 +468,13 @@ export const WorkoutTwacker = () => {
                   <FormField
                     control={form.control}
                     name="workoutdate"
-                    render={() => (
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Date</FormLabel>
                         <FormControl>
                           <Input
                             type="date"
-                            // TRANSFORM: ISO -> yyyy-MM-dd
-                            value={format(
-                              parseISO(form.watch("begintime")),
-                              "yyyy-MM-dd"
-                            )}
+                            value={field.value}
                             onChange={(e) => onDateChange(e.target.value)}
                           />
                         </FormControl>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../services/api";
 import type { WorkoutLog } from "../types/models";
+import { format, parseISO } from "date-fns";
 
 export const useWorkouts = () => {
   const queryClient = useQueryClient();
@@ -12,7 +13,11 @@ export const useWorkouts = () => {
     queryKey: ["workouts"], // The unique ID for this data
     queryFn: async () => {
       const { data } = await api.get<WorkoutLog[]>("api/v1/workouts/");
-      return data;
+
+      return data.map((w) => ({
+        ...w,
+        workoutdate: format(parseISO(w.begintime), "yyyy-MM-dd"),
+      }));
     },
     staleTime: 1000 * 60 * 5, // Data is "fresh" for 5 minutes. Don't refetch if navigating.
   });
