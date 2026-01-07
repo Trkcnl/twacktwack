@@ -52,8 +52,10 @@ const StatCard = ({ title, value, icon: Icon, subtext }: any) => (
         <Icon className="w-6 h-6" />
       </div>
       <div>
-        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-        <h3 className="text-2xl font-bold">{value}</h3>
+        <p className="text-sm font-medium text-muted-foreground pb-2">
+          {title}
+        </p>
+        <h3 className="text-2xl font-bold">{value || "No records found."}</h3>
         {subtext && <p className="text-xs text-muted-foreground">{subtext}</p>}
       </div>
     </CardContent>
@@ -202,7 +204,11 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Current Weight"
-          value={`${parseFloat(weightHistory.at(-1).value).toFixed(1)} kg`}
+          value={
+            weightHistory.at(-1)
+              ? `${parseFloat(weightHistory.at(-1).value).toFixed(1)} kg`
+              : null
+          }
           icon={Scale}
         />
         <StatCard
@@ -297,8 +303,8 @@ export const Dashboard = () => {
                 <Trophy className="w-5 h-5" /> Personal Record
               </CardTitle>
             </CardHeader>
-            {randomRecord ? (
-              <CardContent>
+            <CardContent>
+              {randomRecord ? (
                 <div className="flex justify-between items-end">
                   <div>
                     <p className="text-sm text-orange-600/80 font-medium">
@@ -312,10 +318,10 @@ export const Dashboard = () => {
                     {randomRecord.date}
                   </span>
                 </div>
-              </CardContent>
-            ) : (
-              <div>No records found!</div>
-            )}
+              ) : (
+                <div className="text-2xl">No records found!</div>
+              )}
+            </CardContent>
           </Card>
 
           {/* B2. WEEKLY ACTIVITY TRACKER */}

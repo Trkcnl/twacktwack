@@ -13,6 +13,7 @@ import {
   type FieldValues,
 } from "react-hook-form"
 
+import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
@@ -135,7 +136,22 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
-function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
+const formMessageVariants = cva(
+  "text-[0.8rem] font-medium text-destructive", // Base styles
+  {
+    variants: {
+      variant: {
+        default: "", // Standard block layout
+        floating: "absolute bottom-1 left-0 text-xs", // Your new absolute style
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+function FormMessage({ className, variant, ...props }: React.ComponentProps<"p"> & VariantProps<typeof formMessageVariants>) {
   const { error, formMessageId } = useFormField()
   const body = error ? String(error?.message ?? "") : props.children
 
@@ -147,7 +163,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="form-message"
       id={formMessageId}
-      className={cn("text-destructive text-sm", className)}
+      className={cn(formMessageVariants({variant}), className)}
       {...props}
     >
       {body}
