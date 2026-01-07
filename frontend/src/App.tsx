@@ -5,6 +5,7 @@ import { Layout } from "./pages/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { BodyTwacker } from "./pages/BodyTwacker";
 import { WorkoutTwacker } from "./pages/WorkoutTwacker";
+import { UserProfilePage } from "./pages/UserProfile";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthProvider";
 
@@ -27,6 +28,7 @@ function App() {
               {/* <Route path="/settings" element={<Settings />} /> */}
               <Route path="/body_twacker" element={<BodyTwacker />} />
               <Route path="/workout_twacker" element={<WorkoutTwacker />} />
+              <Route path="/profile" element={<UserProfilePage />} />
             </Route>
           </Route>
 

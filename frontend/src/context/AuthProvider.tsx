@@ -2,12 +2,14 @@ import { useState, useEffect, type ReactNode } from "react";
 import api from "../services/api";
 import type { User, JWToken } from "../types/auth"; // Ensure these match your file paths
 import { AuthContext } from "./AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   // isLoading is crucial: it prevents the app from kicking the user out
   // while it is still checking if a token exists in LocalStorage.
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
 
   // 2. Login Action
   const login = async (credentials: object) => {
@@ -30,6 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     localStorage.removeItem("access");
     localStorage.removeItem("refresh");
+    queryClient.clear();
     setUser(null);
   };
 

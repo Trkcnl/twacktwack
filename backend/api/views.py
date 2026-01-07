@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, mixins
+from rest_framework import viewsets, mixins, status
 from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -34,7 +34,10 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+            return User.objects.filter(id=self.request.user.id)
+        return User.objects.none()
 
     def get_permissions(self):
         if self.action == "create":
@@ -49,10 +52,32 @@ class UserViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         raise MethodNotAllowed("GET")
 
-    @action(detail=False, methods=["get"], url_path="me", url_name="me")
-    def get_user(self, request):
-        serializer = UserReadSerializer(request.user)
-        return Response(serializer.data)
+    def retrieve(self, request, *args, **kwargs):
+        raise MethodNotAllowed("GET")
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get", "put", "patch", "delete"], url_path="me")
+    def me(self, request):
+        user = request.user
+        if request.method == "GET":
+            serializer = UserReadSerializer(user)
+            return Response(serializer.data)
+
+        elif request.method == "DELETE":
+            user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        elif request.method in ["PUT", "PATCH"]:
+            serializer = UserRegisterSerializer(
+                user, data=request.data, partial=(request.method == "PATCH")
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
 
 
 class UserProfileViewSet(viewsets.ModelViewSet):

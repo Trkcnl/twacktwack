@@ -7,7 +7,7 @@ export const useMeasurementTypes = () => {
   // This hook can be used in Dashboard AND WorkoutTwacker.
   // They will share the same data cache.
   const measurementTypesQuery = useQuery({
-    queryKey: ["exerciseTypes"], // The unique ID for this data
+    queryKey: ["measurementTypes"], // The unique ID for this data
     queryFn: async () => {
       const { data } = await api.get<MeasurementType[]>(
         "api/v1/measurement-types/"

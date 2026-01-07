@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthHook";
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
+
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -18,15 +19,19 @@ export const Navbar = () => {
       : "text-gray-300 hover:text-white transition-colors pb-1"; // Inactive Style
 
   return (
-    <nav className="bg-slate-800 text-white shadow-md">
+    <nav className="bg-slate-800 text-white shadow-md text-xl">
       <div className="container mx-auto px-4 py-4  flex items-center justify-between">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-12">
           <div className="md:flex gap-8">
             <Link
               to="/dashboard"
               className="hover:text-blue-300 transition-colors"
             >
-              MyApp
+              <img
+                src={"src/assets/twacktwacklogo.png"}
+                alt="App Logo"
+                className="h-16 w-auto"
+              />
             </Link>
           </div>
           {user && (
@@ -50,12 +55,12 @@ export const Navbar = () => {
         <div className="flex items-center gap-6">
           {user ? (
             <>
-              <span className="text-slate-300 text-sm hidden sm:block">
+              <Link to={"/profile"} className="text-slate-300 hidden sm:block">
                 {user.username}
-              </span>
+              </Link>
               <button
                 onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded font-medium transition-colors"
               >
                 Logout
               </button>
@@ -63,7 +68,7 @@ export const Navbar = () => {
           ) : (
             <Link
               to="/login"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded "
             >
               Login
             </Link>

@@ -1,5 +1,3 @@
-import type { User } from "./auth.ts";
-
 export interface MeasurementType {
   readonly id: number;
   readonly name: string;
@@ -11,17 +9,6 @@ export interface Measurement {
   date: string;
   value: number;
   measurement_type: MeasurementType;
-}
-
-export interface UserProfile {
-  readonly id: number;
-  name: string;
-  birthdate: Date;
-  height: number;
-  bio: string;
-  user: User;
-  readonly created: Date;
-  readonly modified: Date;
 }
 
 export interface WorkoutLog {
@@ -53,8 +40,8 @@ export interface ExerciseSet {
 }
 
 export interface PersonalBest {
-    exercise_type: ExerciseType;
-    weight_kg: number;
-    reps: number;
-    date: string;
+  exercise_type: ExerciseType;
+  weight_kg: number;
+  reps: number;
+  date: string;
 }
