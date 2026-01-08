@@ -63,7 +63,6 @@ const setSchema = z.object({
   id: z.coerce.number<number>(),
   weight_kg: z.coerce.number<number>().min(0, "Please enter a positive weight"),
   reps: z.coerce.number<number>().min(0, "Reps can not have a negative value"),
-  rpe: z.coerce.number<number>().min(0).max(10).optional(),
   rir: z.coerce.number<number>().min(0).optional(),
 });
 
@@ -140,17 +139,7 @@ const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
                   )}
                 />
               </TableCell>
-              <TableCell>
-                <FormField
-                  control={control}
-                  name={`exercise_logs.${exerciseIndex}.exercise_sets.${index}.rpe`}
-                  render={({ field }) => (
-                    <FormControl>
-                      <Input type="number" className="h-8 w-20" {...field} />
-                    </FormControl>
-                  )}
-                />
-              </TableCell>
+
               <TableCell>
                 <FormField
                   control={control}
@@ -180,7 +169,7 @@ const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => append({ id: 0, weight_kg: 0, reps: 0, rpe: 8, rir: 2 })}
+        onClick={() => append({ id: 0, weight_kg: 0, reps: 0, rir: 2 })}
         className="mt-2 text-green-600 hover:text-green-700 hover:bg-green-50"
       >
         <Plus className="w-4 h-4 mr-2" /> Add Set
@@ -296,7 +285,6 @@ export const WorkoutTwacker = () => {
 
   const onSubmit = async (data: WorkoutFormValues) => {
     const payload = {
-      id: data.id,
       begintime: data.begintime,
       endtime: data.endtime,
       exercise_logs: data.exercise_logs.map((log) => ({
@@ -307,7 +295,6 @@ export const WorkoutTwacker = () => {
           weight_kg: st.weight_kg,
           reps: st.reps,
           rir: st.rir,
-          rpe: st.rpe,
         })),
       })),
     };
@@ -358,7 +345,6 @@ export const WorkoutTwacker = () => {
           weight_kg: st.weight_kg,
           reps: st.reps,
           rir: st.rir,
-          rpe: st.rpe,
         })),
       })),
     };

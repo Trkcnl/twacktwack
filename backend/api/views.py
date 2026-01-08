@@ -95,6 +95,9 @@ class UserProfileViewSet(viewsets.ModelViewSet):
 
         return [permission() for permission in permission_classes]
 
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 
 # MEASUREMENT
 

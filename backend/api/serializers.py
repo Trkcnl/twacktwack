@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import (
@@ -9,20 +10,21 @@ from .models import (
     ExerciseLog,
     UserProfile,
 )
+from datetime import date
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ["name", "birthdate", "bio", "created", "modified"]
+        fields = ["id", "name", "birthdate", "bio", "height"]
 
 
 class UserReadSerializer(serializers.ModelSerializer):
-    user_profile = UserProfileSerializer
+    user_profile = UserProfileSerializer()
 
     class Meta:
         model = User
-        fields = ["id", "username", "user_profile"]
+        fields = ["id", "username", "email", "user_profile"]
         read_only_fields = fields
 
 
@@ -32,34 +34,54 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         fields = ["username", "email", "password"]
         write_only_fields = fields
 
+    @transaction.atomic
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data)
+
+        UserProfile.objects.create(
+            user=user,
+            birthdate=date(year=2000, month=1, day=1),
+            height=180,
+            name="John Doe",
+            bio="Bio",
+        )
+
+        return user
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)  # Handles Hashing
+
+        instance.save()
+        return instance
 
 
 class ExerciseTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseType
-        fields = ["id", "name"]
+        fields = ["id", "name", "muscle_group", "custom_type"]
         read_only_fields = fields
 
 
 class ExerciseSetSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
 
     class Meta:
         model = ExerciseSet
-        fields = ["id", "reps", "weight_kg", "rpe", "rir"]
-        read_only_fields = ["id"]
+        fields = ["id", "reps", "weight_kg", "rir"]
 
 
 class ExerciseLogWriteSerializer(serializers.ModelSerializer):
     exercise_sets = ExerciseSetSerializer(many=True)
-    id = serializers.IntegerField()
+    id = serializers.IntegerField(required=False)
 
     class Meta:
         model = ExerciseLog
         fields = ["id", "exercise_sets", "exercise_type"]
-        read_only_fields = ["id"]
 
 
 class ExerciseLogReadSerializer(serializers.ModelSerializer):
@@ -79,26 +101,25 @@ class WorkoutLogWriteSerializer(serializers.ModelSerializer):
         fields = ["id", "begintime", "endtime", "exercise_logs"]
         read_only_fields = ["id"]
 
+    @transaction.atomic
     def create(self, validated_data):
         exercises_data = validated_data.pop("exercise_logs")
-
         workout_log = WorkoutLog.objects.create(**validated_data)
 
         for exercise_data in exercises_data:
             sets_data = exercise_data.pop("exercise_sets")
-            exercise_data.pop(
-                "id"
-            )  # We need the id for update for create it violates unique constraint
+            exercise_data.pop("id", None)
             exercise_log = ExerciseLog.objects.create(
                 workout_log=workout_log, **exercise_data
             )
 
             for set_data in sets_data:
-                set_data.pop("id")  # idem (see exercise_data)
+                set_data.pop("id", None)
                 ExerciseSet.objects.create(exercise_log=exercise_log, **set_data)
 
         return workout_log
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         exercises_data = validated_data.pop("exercise_logs", [])
 
@@ -118,7 +139,7 @@ class WorkoutLogWriteSerializer(serializers.ModelSerializer):
         # 2. Handle Create / Update
         for exercise_data in exercises_data:
             sets_data = exercise_data.pop("exercise_sets", [])
-            exercise_id = exercise_data.get("id")
+            exercise_id = exercise_data.get("id", None)
 
             if exercise_id in existing_exercise_ids:
                 ExerciseLog.objects.filter(id=exercise_id, workout_log=instance).update(
@@ -127,7 +148,7 @@ class WorkoutLogWriteSerializer(serializers.ModelSerializer):
 
                 current_log_id = exercise_id
             else:
-                exercise_data.pop("id")
+                exercise_data.pop("id", None)
                 new_log = ExerciseLog.objects.create(
                     workout_log=instance, **exercise_data
                 )
@@ -147,13 +168,13 @@ class WorkoutLogWriteSerializer(serializers.ModelSerializer):
             ).delete()
 
             for set_data in sets_data:
-                set_id = set_data.get("id")
+                set_id = set_data.get("id", None)
                 if set_id in existing_set_ids:
                     ExerciseSet.objects.filter(
                         id=set_id, exercise_log_id=current_log_id
                     ).update(**set_data)
                 else:
-                    set_data.pop("id")
+                    set_data.pop("id", None)
                     ExerciseSet.objects.create(
                         exercise_log_id=current_log_id, **set_data
                     )

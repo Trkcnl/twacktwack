@@ -23,6 +23,8 @@ export interface ExerciseType {
   readonly id: number;
   readonly name: string;
   readonly created: Date;
+  readonly muscle_group: string;
+  readonly custom_type: boolean;
 }
 
 export interface ExerciseLog {
@@ -35,7 +37,6 @@ export interface ExerciseSet {
   readonly id: number;
   weight_kg: number;
   reps: number;
-  rpe: number;
   rir: number;
 }
 

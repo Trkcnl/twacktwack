@@ -40,7 +40,7 @@ api.interceptors.response.use(
     if (statusCode === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        // Request new token
+        // TODO: There should be a queue system here for refresh requests.
         const refreshToken = localStorage.getItem("refresh");
         const response = await axios.post(
           `${baseURL}api/v1/auth/token/refresh/`,
@@ -51,7 +51,13 @@ api.interceptors.response.use(
         localStorage.setItem("access", newAccessToken);
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
-        return axios(error.config);
+        return api({
+          ...originalRequest,
+          headers: {
+            ...originalRequest.headers,
+            Authorization: `Bearer ${newAccessToken}`,
+          },
+        });
       } catch (refreshError) {
         console.error("Token refresh failed:", refreshError);
         localStorage.removeItem("access");
