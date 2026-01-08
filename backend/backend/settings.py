@@ -142,7 +142,4 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-
-# Typically you would allow specific origins not all of them
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True

@@ -49,7 +49,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
 
 // ------------------------------------------------------------------
 // 1. DEFINE SCHEMA
@@ -57,6 +56,7 @@ import { toast } from "sonner";
 
 // We flatten the structure here for easier form handling
 const profileSchema = z.object({
+  id: z.coerce.number<number>(),
   username: z.string().min(2, "Username must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
   name: z.string().min(1, "Name is required"),
@@ -82,6 +82,7 @@ export const UserProfilePage = () => {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
+      id: 0,
       username: "",
       email: "",
       name: "",
@@ -106,11 +107,12 @@ export const UserProfilePage = () => {
       }
 
       form.reset({
+        id: user.user_profile.id,
         username: user.username,
         email: user.email,
-        name: user.user_profile.name,
-        bio: user.user_profile.bio || "",
-        height: user.user_profile.height,
+        name: user.user_profile?.name,
+        bio: user.user_profile?.bio || "",
+        height: user.user_profile?.height,
         birthdate: formattedDate,
       });
     }
@@ -118,33 +120,22 @@ export const UserProfilePage = () => {
 
   // 3. Handle Update
   const onSubmit = async (data: ProfileFormValues) => {
+    console.log(user);
     if (!user) return;
 
     // Reconstruct the nested payload required by the Backend
     const payload = {
-      username: data.username,
-      email: data.email,
-      user_profile: {
-        name: data.name,
-        bio: data.bio,
-        height: data.height,
-        birthdate: data.birthdate, // API usually accepts YYYY-MM-DD
-      },
+      id: data.id,
+      name: data.name,
+      bio: data.bio,
+      height: data.height,
+      birthdate: data.birthdate,
     };
 
     try {
-      // Assuming endpoint is PATCH /api/v1/auth/users/me/
-      // Note: If you are using Djoser or standard DRF, endpoint might vary.
-
-      toast.success("Profile Updated");
-
-      // Optional: Force a window reload or re-fetch user to ensure Context is fresh
-      // Since AuthContext doesn't expose 'fetchUser', a reload is a crude but effective way
-      // to ensure data consistency if the backend modifies data on save.
-      // window.location.reload();
+      await api.put(`/api/v1/userprofiles/${data.id}/`, payload);
     } catch (error) {
       console.error("Update failed", error);
-      toast.error("Failed to update profile. Please check your inputs.");
     }
   };
 
