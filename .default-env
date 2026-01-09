@@ -1,0 +1,15 @@
+# Django
+DJANGO_SECRET_KEY=!!!CHANGEME!!!
+DEBUG=1
+ALLOWED_HOSTS=*
+
+# Database (Postgres)
+POSTGRES_DB=twacker_db
+POSTGRES_USER=twacker_user
+POSTGRES_PASSWORD=!!!CHANGEME!!!
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# Frontend
+# Use your Laptop IP if testing on phone, otherwise localhost
+VITE_API_URL=http://localhost:8000/

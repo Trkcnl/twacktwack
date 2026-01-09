@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useForm, useFieldArray, useFormContext } from "react-hook-form";
+import { useForm, useFieldArray, useFormContext} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format, add, set, parseISO } from "date-fns";
@@ -88,7 +88,7 @@ export type WorkoutFormValues = z.infer<typeof workoutSchema>;
 
 // Component A: Manages the list of Sets
 const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
-  const { control } = useFormContext<WorkoutFormValues>();
+  const { control,  } = useFormContext<WorkoutFormValues>();
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -103,7 +103,6 @@ const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
             <TableHead className="w-15">Set</TableHead>
             <TableHead>kg</TableHead>
             <TableHead>Reps</TableHead>
-            <TableHead>RPE</TableHead>
             <TableHead>RIR</TableHead>
             <TableHead className="w-12.5"></TableHead>
           </TableRow>
@@ -169,7 +168,7 @@ const SetList = ({ exerciseIndex }: { exerciseIndex: number }) => {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => append({ id: 0, weight_kg: 0, reps: 0, rir: 2 })}
+        onClick={() => append({id:0, weight_kg: 0, reps: 0, rir: 0})}
         className="mt-2 text-green-600 hover:text-green-700 hover:bg-green-50"
       >
         <Plus className="w-4 h-4 mr-2" /> Add Set
@@ -240,7 +239,7 @@ const ExerciseList = ({ exerciseTypes }: { exerciseTypes: ExerciseType[] }) => {
       <Button
         type="button"
         variant="outline"
-        onClick={() => append({ id: 0, exercise_type: "", exercise_sets: [] })}
+        onClick={() => append({ id: 0, exercise_type: "", exercise_sets: [{id:0, weight_kg: 0, reps: 0, rir: 0}] })}
         className="w-full border-dashed h-12 text-muted-foreground hover:text-primary hover:border-primary/50"
       >
         <Plus className="w-4 h-4 mr-2" /> Add Another Exercise
@@ -269,7 +268,17 @@ export const WorkoutTwacker = () => {
       workoutdate: format(new Date().toISOString(), "yyyy-MM-dd"),
       begintime: new Date().toISOString(),
       endtime: add(new Date(), { hours: 1 }).toISOString(),
-      exercise_logs: [],
+      exercise_logs: [{
+        id:0,
+        exercise_type: "Please select an exercise",
+        exercise_sets: [{
+          id:0,
+          weight_kg:0,
+          reps:0,
+          rir:0
+        }]
+
+      }],
     },
     mode: "onChange",
   });
@@ -320,7 +329,17 @@ export const WorkoutTwacker = () => {
       workoutdate: format(new Date().toISOString(), "yyyy-MM-dd"),
       begintime: new Date().toISOString(),
       endtime: add(new Date(), { hours: 1 }).toISOString(),
-      exercise_logs: [],
+      exercise_logs: [{
+        id:0,
+        exercise_type: "",
+        exercise_sets: [{
+          id:0,
+          weight_kg:0,
+          reps:0,
+          rir:0
+        }]
+
+      }],
     });
     setEditingId(null);
   };

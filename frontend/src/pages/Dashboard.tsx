@@ -185,9 +185,9 @@ export const Dashboard = () => {
     const countMap = new Map();
     recentWorkouts.forEach((workout) => {
       workout.exercise_logs.forEach((log) => {
-        const typeName = log.exercise_type.name;
+        const muscleGroup = log.exercise_type.muscle_group;
         const numberOfSets = log.exercise_sets.length;
-        countMap.set(typeName, (countMap.get(typeName) || 0) + numberOfSets);
+        countMap.set(muscleGroup, (countMap.get(muscleGroup) || 0) + numberOfSets);
       });
     });
     return Array.from(countMap.entries()).map(([name, count]) => ({

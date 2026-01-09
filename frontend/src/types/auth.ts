@@ -1,7 +1,7 @@
 export interface UserProfile {
   readonly id: number;
   name: string;
-  birthdate: Date;
+  birthdate: string;
   height: number;
   bio: string;
 }

@@ -113,7 +113,7 @@ export const UserProfilePage = () => {
         name: user.user_profile?.name,
         bio: user.user_profile?.bio || "",
         height: user.user_profile?.height,
-        birthdate: formattedDate,
+        birthdate: user.user_profile?.birthdate || formattedDate,
       });
     }
   }, [user, form]);
