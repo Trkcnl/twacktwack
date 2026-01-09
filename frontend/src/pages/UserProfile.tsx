@@ -58,7 +58,7 @@ import {
 const profileSchema = z.object({
   id: z.coerce.number<number>(),
   username: z.string().min(2, "Username must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   name: z.string().min(1, "Name is required"),
   bio: z.string().optional(),
   height: z.coerce.number<number>().min(0, "Height must be positive"),

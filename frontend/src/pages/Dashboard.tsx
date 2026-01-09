@@ -36,6 +36,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { usePersonalRecords } from "@/hooks/usePersonalRecords";
+import { Navigate } from "react-router-dom";
 
 // Colors for the Pie Chart slices
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -71,6 +72,14 @@ export const Dashboard = () => {
   const { workouts, workouts__isLoading } = useWorkouts();
   const { measurements, measurements__isLoading } = useMeasurements();
   const { records, records__isLoading } = usePersonalRecords();
+
+  if (workouts.length === 0) {
+    return (<Navigate to={"/workout_twacker"}></Navigate>)
+  }
+
+  if (measurements.length === 0) {
+    return (<Navigate to={"/workout_twacker"}></Navigate>)
+  }
 
   // Pick a random PR to display
   const randomRecord =
