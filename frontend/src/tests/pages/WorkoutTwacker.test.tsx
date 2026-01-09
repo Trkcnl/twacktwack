@@ -36,22 +36,16 @@ describe("WorkoutTwacker Component", () => {
     render(<WorkoutTwacker />, { wrapper: createWrapper() });
 
     // 1. Open the form
-    const logButton = screen.getByText(/Log Workout/i);
-    fireEvent.click(logButton);
+    fireEvent.click(screen.getByText(/Log Workout/i));
 
-    // 2. Add an Exercise
-    const addExerciseBtn = screen.getByText(/Add Another Exercise/i);
-    fireEvent.click(addExerciseBtn);
-
-    // 3. Assert Exercise Row appeared
+    // 2. Assert Exercise Row appeared
     // Note: Radix UI Selects are hard to test directly, usually we check if the trigger exists
     expect(screen.getByText(/Select exercise/i)).toBeInTheDocument();
 
-    // 4. Add a Set to that Exercise
-    const addSetBtn = screen.getByText(/Add Set/i);
-    fireEvent.click(addSetBtn);
+    // 3. Add a Set to that Exercise
+    fireEvent.click(screen.getByText(/Add Set/i));
 
-    // 5. Check if inputs appeared (Weight and Reps)
+    // 4. Check if inputs appeared (Weight and Reps)
     // We look for inputs with type="number"
     const inputs = screen.getAllByRole("spinbutton"); // 'spinbutton' = input type="number"
     expect(inputs.length).toBeGreaterThan(0);
@@ -63,7 +57,6 @@ describe("WorkoutTwacker Component", () => {
 
     // Open Form
     fireEvent.click(screen.getByText(/Log Workout/i));
-    fireEvent.click(screen.getByText(/Add Another Exercise/i));
     fireEvent.click(screen.getByText(/Add Set/i));
 
     const inputs = screen.getAllByRole("spinbutton");

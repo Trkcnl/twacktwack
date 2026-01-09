@@ -35,7 +35,7 @@ export const Navbar = () => {
             </Link>
           </div>
           {user && (
-            <div className="hidden md:flex gap-8">
+            <div className="md:flex gap-8">
               <NavLink to="/dashboard" className={getLinkClass}>
                 Dashboard
               </NavLink>
